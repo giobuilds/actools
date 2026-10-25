@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AcManager.App.ViewModels"
+             x:Class="AcManager.App.Views.VideoView"
+             x:DataType="vm:VideoViewModel">
+  <ScrollViewer>
+    <StackPanel MaxWidth="520" HorizontalAlignment="Left" Spacing="10">
+      <TextBlock Text="Video" FontSize="28" FontWeight="SemiBold" />
+      <TextBlock TextWrapping="Wrap" Opacity="0.8"
+                 Text="Resolution and fullscreen are written into the prefix video.ini. Other options in that file stay as they are. The game reads them the next time a session starts." />
+
+      <TextBlock Text="Width" />
+      <NumericUpDown Minimum="1" Maximum="16384" Increment="1" FormatString="0" Value="{Binding Width}" Width="160" HorizontalAlignment="Left" />
+
+      <TextBlock Text="Height" />
+      <NumericUpDown Minimum="1" Maximum="16384" Increment="1" FormatString="0" Value="{Binding Height}" Width="160" HorizontalAlignment="Left" />
+
+      <CheckBox Content="Fullscreen" IsChecked="{Binding Fullscreen}" />
+
+      <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+        <Button Content="Reload" Command="{Binding ReloadCommand}" />
+        <Button Content="Save" Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}" />
+      </StackPanel>
+
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
