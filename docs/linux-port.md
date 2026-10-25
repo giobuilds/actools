@@ -79,10 +79,10 @@ Launch, in the same order Content Manager already uses:
 
 1. Build the session with the existing `Game.*Properties` writers (`race.ini` sections `RACE`, `SESSION_*`, `CAR_*`, weather, ghost, groove).
 2. Write that ini, and any touched `video.ini` / `controls.ini` / CSP cfg, into the prefix documents directory with AC’s line endings and encoding.
-3. Start the game through Steam so the user’s Proton version, overlay, and account stay intact: `steam -applaunch 244210`.
+3. Start `acs.exe` with the Proton build recorded for app 244210 (`compatdata/244210/version`, then `config_info`, then `config.vdf`). The working directory is the game root. `steam -applaunch 244210` starts `AssettoCorsa.exe`, the official menu, which does not load the practice session.
 4. Watch for a process whose name is `acs.exe`. On exit, return to the app.
 
-A direct `proton run acs.exe` path is a fallback when Steam’s command-line launch is unavailable. It must set `STEAM_COMPAT_DATA_PATH` and `STEAM_COMPAT_CLIENT_INSTALL_PATH` to the same prefix.
+`STEAM_COMPAT_DATA_PATH` is `compatdata/244210` (the directory that contains `pfx`). `STEAM_COMPAT_CLIENT_INSTALL_PATH` is the Steam client that owns that prefix. Steam has to already be running so the game can see the account.
 
 Flatpak Steam is a sandbox. A host-installed app can only see the prefix if that path is on the host filesystem (it is, under `~/.var/...`). Document that, and grant read/write to the Steam library and the prefix. Do not require the user to run Content Manager inside the Steam sandbox.
 
@@ -238,6 +238,6 @@ Phase 0 and the start of Phase 1:
 2. Move `IniFile` and the path logic behind `IAcInstallLayout`.
 3. Implement Steam library and Proton prefix discovery, including manual override.
 4. Scan cars and show them in a virtualized list with search.
-5. Drive writes a minimal practice `race.ini` into the prefix and runs `steam -applaunch 244210`.
+5. Drive writes a minimal practice `race.ini` into the prefix and starts `acs.exe` under the prefix's Proton build. `steam -applaunch 244210` opens the official launcher menu, so it is not the Drive path.
 
 That slice is the first thing you can use while playing. Later phases stack on the same layout and launcher.

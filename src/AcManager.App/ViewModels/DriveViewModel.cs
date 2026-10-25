@@ -160,12 +160,16 @@ public partial class DriveViewModel : ObservableObject
                 DurationMinutes = (double)DurationMinutes,
                 SpawnSet = SpawnSet,
             });
-            var launch = _launcher.LaunchAssettoCorsa();
-            Status = launch == GameLaunchStatus.SteamInvoked
-                ? "Wrote " + path + ". Steam is starting Assetto Corsa."
-                : "Wrote " + path + ". The steam command is not on PATH, so the game was not started.";
-            if (launch == GameLaunchStatus.SteamInvoked) {
+            var launch = _launcher.LaunchSession(_layout);
+            if (launch == GameLaunchStatus.SessionStarted) {
+                Status = "Wrote " + path + ". Starting the practice session.";
                 WatchForGame();
+            } else if (launch == GameLaunchStatus.GameNotFound) {
+                Status = "Wrote " + path + ". acs.exe is missing from the game folder, so the session was not started.";
+            } else if (launch == GameLaunchStatus.LaunchFailed) {
+                Status = "Wrote " + path + ". Proton did not start.";
+            } else {
+                Status = "Wrote " + path + ". Could not find Proton for this prefix, so the session was not started.";
             }
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) {
             Status = ex.Message;

@@ -31,13 +31,25 @@ public interface IInstallSettingsStore
 
 public enum GameLaunchStatus
 {
-    SteamInvoked,
-    SteamNotFound,
+    /// <summary>acs.exe was started under the prefix's Proton build.</summary>
+    SessionStarted,
+
+    /// <summary>The layout has no acs.exe to start.</summary>
+    GameNotFound,
+
+    /// <summary>The prefix does not point at a Proton build we can run.</summary>
+    ProtonNotFound,
+
+    /// <summary>Proton was found, but the process did not start.</summary>
+    LaunchFailed,
 }
 
 public interface IGameLauncher
 {
-    GameLaunchStatus LaunchAssettoCorsa();
+    /// <summary>
+    /// Starts acs.exe in the layout's Proton prefix. steam -applaunch starts the official launcher menu instead.
+    /// </summary>
+    GameLaunchStatus LaunchSession(AcInstallLayout layout);
 
     bool IsGameRunning();
 }

@@ -51,11 +51,12 @@ public class DriveFlowTests
             drive.DriveCommand.Execute(null);
 
             Assert.Equal(1, launcher.Launches);
+            Assert.Equal(game, launcher.Seen?.GameRoot);
             var race = IniFile.Load(Path.Combine(documents, "cfg", "race.ini"));
             Assert.Equal("ks_mazda_mx5_cup", race["RACE"].Get("MODEL"));
             Assert.Equal("ks_silverstone", race["RACE"].Get("TRACK"));
             Assert.Equal("1", race["SESSION_0"].Get("TYPE"));
-            Assert.Contains("steam command is not on PATH", drive.Status, StringComparison.Ordinal);
+            Assert.Contains("Could not find Proton", drive.Status, StringComparison.Ordinal);
         } finally {
             Directory.Delete(root, true);
         }
@@ -103,10 +104,13 @@ public class DriveFlowTests
     {
         public int Launches { get; private set; }
 
-        public GameLaunchStatus LaunchAssettoCorsa()
+        public AcInstallLayout? Seen { get; private set; }
+
+        public GameLaunchStatus LaunchSession(AcInstallLayout layout)
         {
             Launches++;
-            return GameLaunchStatus.SteamNotFound;
+            Seen = layout;
+            return GameLaunchStatus.ProtonNotFound;
         }
 
         public bool IsGameRunning() => false;
