@@ -16,11 +16,6 @@ public partial class DriveViewModel : ObservableObject
     private IReadOnlyList<CarSummary> _cars = [];
     private CancellationTokenSource? _watch;
 
-    public DriveViewModel(IGameLauncher launcher)
-    {
-        _launcher = launcher;
-    }
-
     public ObservableCollection<CarSummary> FilteredCars { get; } = [];
 
     [ObservableProperty]
@@ -60,6 +55,27 @@ public partial class DriveViewModel : ObservableObject
     private string _spawnSet = "PIT";
 
     [ObservableProperty]
+    private decimal _raceLaps = 5;
+
+    [ObservableProperty]
+    private decimal _opponents = 5;
+
+    [ObservableProperty]
+    private decimal _aiLevel = 90;
+
+    [ObservableProperty]
+    private bool _showMinutes = true;
+
+    [ObservableProperty]
+    private bool _showSpawn = true;
+
+    [ObservableProperty]
+    private bool _showLaps;
+
+    [ObservableProperty]
+    private bool _showOpponents;
+
+    [ObservableProperty]
     private string? _previewPath;
 
     [ObservableProperty]
@@ -69,6 +85,22 @@ public partial class DriveViewModel : ObservableObject
     private bool _libraryReady;
 
     public IReadOnlyList<string> SpawnSets { get; } = ["PIT", "START"];
+
+    public IReadOnlyList<DriveModeOption> Modes { get; } = [
+        new(QuickDriveMode.Practice, "Practice"),
+        new(QuickDriveMode.Hotlap, "Hotlap"),
+        new(QuickDriveMode.Race, "Race"),
+        new(QuickDriveMode.TrackDay, "Track Day"),
+    ];
+
+    [ObservableProperty]
+    private DriveModeOption _selectedMode;
+
+    public DriveViewModel(IGameLauncher launcher)
+    {
+        _launcher = launcher;
+        _selectedMode = Modes[0];
+    }
 
     public void UseLayout(AcInstallLayout layout)
     {
@@ -112,6 +144,14 @@ public partial class DriveViewModel : ObservableObject
 
     partial void OnDurationMinutesChanged(decimal value) => DriveCommand.NotifyCanExecuteChanged();
 
+    partial void OnSelectedModeChanged(DriveModeOption value)
+    {
+        ShowMinutes = value.Mode == QuickDriveMode.Practice;
+        ShowSpawn = value.Mode == QuickDriveMode.Practice;
+        ShowLaps = value.Mode == QuickDriveMode.Race;
+        ShowOpponents = value.Mode is QuickDriveMode.Race or QuickDriveMode.TrackDay;
+    }
+
     private void ApplyFilter()
     {
         var selectedId = SelectedCar?.Id;
@@ -152,6 +192,7 @@ public partial class DriveViewModel : ObservableObject
 
         try {
             var path = PracticeLaunch.WriteRaceIni(_layout, new PracticeSession {
+                Mode = SelectedMode.Mode,
                 CarId = SelectedCar.Id,
                 SkinId = SelectedSkin?.Id ?? "",
                 TrackId = SelectedTrack.Id,
@@ -159,10 +200,13 @@ public partial class DriveViewModel : ObservableObject
                 WeatherId = SelectedWeather?.Id ?? "3_clear",
                 DurationMinutes = (double)DurationMinutes,
                 SpawnSet = SpawnSet,
+                RaceLaps = (int)RaceLaps,
+                Opponents = (int)Opponents,
+                AiLevel = (int)AiLevel,
             });
             var launch = _launcher.LaunchSession(_layout);
             if (launch == GameLaunchStatus.SessionStarted) {
-                Status = "Wrote " + path + ". Starting the practice session.";
+                Status = "Wrote " + path + ". Starting the " + SessionLabel(SelectedMode.Mode) + " session.";
                 WatchForGame();
             } else if (launch == GameLaunchStatus.GameNotFound) {
                 Status = "Wrote " + path + ". acs.exe is missing from the game folder, so the session was not started.";
@@ -183,10 +227,19 @@ public partial class DriveViewModel : ObservableObject
         var token = _watch.Token;
         _ = Task.Run(async () => {
             try {
-                for (var i = 0; i < 30 && !token.IsCancellationRequested; i++) {
+                var sawGame = false;
+                for (var i = 0; i < 60 && !token.IsCancellationRequested && !sawGame; i++) {
                     await Task.Delay(TimeSpan.FromSeconds(1), token).ConfigureAwait(false);
                     if (_launcher.IsGameRunning()) {
-                        Dispatcher.UIThread.Post(() => Status = "Assetto Corsa is running.");
+                        sawGame = true;
+                        Post(token, "Assetto Corsa is running.");
+                    }
+                }
+
+                while (sawGame && !token.IsCancellationRequested) {
+                    await Task.Delay(TimeSpan.FromSeconds(1), token).ConfigureAwait(false);
+                    if (!_launcher.IsGameRunning()) {
+                        Post(token, "Assetto Corsa exited.");
                         return;
                     }
                 }
@@ -195,4 +248,26 @@ public partial class DriveViewModel : ObservableObject
             }
         }, token);
     }
+
+    private void Post(CancellationToken token, string status)
+    {
+        if (token.IsCancellationRequested) {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() => {
+            if (!token.IsCancellationRequested) {
+                Status = status;
+            }
+        });
+    }
+
+    private static string SessionLabel(QuickDriveMode mode) => mode switch {
+        QuickDriveMode.Hotlap => "hotlap",
+        QuickDriveMode.Race => "race",
+        QuickDriveMode.TrackDay => "track day",
+        _ => "practice",
+    };
 }
+
+public sealed record DriveModeOption(QuickDriveMode Mode, string Name);

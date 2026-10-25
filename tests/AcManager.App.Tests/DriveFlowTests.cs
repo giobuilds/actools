@@ -57,6 +57,18 @@ public class DriveFlowTests
             Assert.Equal("ks_silverstone", race["RACE"].Get("TRACK"));
             Assert.Equal("1", race["SESSION_0"].Get("TYPE"));
             Assert.Contains("Could not find Proton", drive.Status, StringComparison.Ordinal);
+
+            drive.SelectedMode = drive.Modes.Single(mode => mode.Name == "Race");
+            drive.RaceLaps = 3;
+            drive.Opponents = 2;
+            Assert.True(drive.ShowLaps);
+            Assert.False(drive.ShowMinutes);
+            drive.DriveCommand.Execute(null);
+            race = IniFile.Load(Path.Combine(documents, "cfg", "race.ini"));
+            Assert.Equal("3", race["SESSION_0"].Get("TYPE"));
+            Assert.Equal("3", race["SESSION_0"].Get("LAPS"));
+            Assert.Equal("3", race["RACE"].Get("CARS"));
+            Assert.Equal("ks_mazda_mx5_cup", race["CAR_2"].Get("MODEL"));
         } finally {
             Directory.Delete(root, true);
         }
