@@ -27,8 +27,17 @@
 
     <ScrollViewer Grid.Column="1">
       <StackPanel Spacing="10" MaxWidth="520" HorizontalAlignment="Left">
-        <TextBlock Text="Practice" FontSize="28" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding SelectedMode.Name}" FontSize="28" FontWeight="SemiBold" />
         <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+
+        <TextBlock Text="Mode" />
+        <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}" HorizontalAlignment="Stretch">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:DriveModeOption">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
 
         <Border Height="180" CornerRadius="4" ClipToBounds="True" Background="#202020">
           <Image Source="{Binding PreviewPath, Converter={x:Static conv:FilePathToBitmapConverter.Instance}}" Stretch="UniformToFill" />
@@ -70,11 +79,20 @@
           </ComboBox.ItemTemplate>
         </ComboBox>
 
-        <TextBlock Text="Minutes" />
-        <NumericUpDown Minimum="0" Maximum="999" Increment="5" FormatString="0" Value="{Binding DurationMinutes}" Width="140" HorizontalAlignment="Left" />
+        <TextBlock Text="Minutes" IsVisible="{Binding ShowMinutes}" />
+        <NumericUpDown Minimum="0" Maximum="999" Increment="5" FormatString="0" Value="{Binding DurationMinutes}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowMinutes}" />
 
-        <TextBlock Text="Spawn" />
-        <ComboBox ItemsSource="{Binding SpawnSets}" SelectedItem="{Binding SpawnSet}" Width="140" HorizontalAlignment="Left" />
+        <TextBlock Text="Laps" IsVisible="{Binding ShowLaps}" />
+        <NumericUpDown Minimum="1" Maximum="999" Increment="1" FormatString="0" Value="{Binding RaceLaps}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowLaps}" />
+
+        <TextBlock Text="Opponents" IsVisible="{Binding ShowOpponents}" />
+        <NumericUpDown Minimum="0" Maximum="40" Increment="1" FormatString="0" Value="{Binding Opponents}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowOpponents}" />
+
+        <TextBlock Text="AI level" IsVisible="{Binding ShowOpponents}" />
+        <NumericUpDown Minimum="0" Maximum="100" Increment="5" FormatString="0" Value="{Binding AiLevel}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowOpponents}" />
+
+        <TextBlock Text="Spawn" IsVisible="{Binding ShowSpawn}" />
+        <ComboBox ItemsSource="{Binding SpawnSets}" SelectedItem="{Binding SpawnSet}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowSpawn}" />
 
         <Button Content="Drive" Command="{Binding DriveCommand}" HorizontalAlignment="Left" MinWidth="140" Margin="0,8,0,0" />
       </StackPanel>
