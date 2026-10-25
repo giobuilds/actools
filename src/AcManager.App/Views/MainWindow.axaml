@@ -17,6 +17,9 @@
     <DataTemplate DataType="vm:DriveViewModel">
       <views:DriveView />
     </DataTemplate>
+    <DataTemplate DataType="vm:VideoViewModel">
+      <views:VideoView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <Grid ColumnDefinitions="200,*">
@@ -27,8 +30,9 @@
           <TextBlock Text="Assetto Corsa" Opacity="0.7" Margin="0,0,0,16" />
           <Button Content="Install" Command="{Binding ShowInstallCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="Drive" Command="{Binding ShowDriveCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="Video" Command="{Binding ShowVideoCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
         </StackPanel>
-        <TextBlock VerticalAlignment="Bottom" Opacity="0.6" TextWrapping="Wrap" Text="Practice sessions launch through Steam Proton." />
+        <TextBlock VerticalAlignment="Bottom" Opacity="0.6" TextWrapping="Wrap" Text="Sessions launch through Proton." />
       </DockPanel>
     </Border>
 
