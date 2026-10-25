@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AcTools.Platform</RootNamespace>
+    <AssemblyName>AcTools.Platform.Abstractions</AssemblyName>
+    <Description>Install layout and process contracts for the Linux port.</Description>
+  </PropertyGroup>
+</Project>

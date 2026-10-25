@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AcManager.App/AcManager.App.csproj" />
+    <Project Path="src/AcManager.Core/AcManager.Core.csproj" />
+    <Project Path="src/AcTools.Core/AcTools.Core.csproj" />
+    <Project Path="src/AcTools.Platform.Abstractions/AcTools.Platform.Abstractions.csproj" />
+    <Project Path="src/AcTools.Platform.Linux/AcTools.Platform.Linux.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AcManager.App.Tests/AcManager.App.Tests.csproj" />
+    <Project Path="tests/AcManager.Core.Tests/AcManager.Core.Tests.csproj" />
+    <Project Path="tests/AcTools.Core.Tests/AcTools.Core.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AcManager.App.ViewModels"
+             x:Class="AcManager.App.Views.InstallView"
+             x:DataType="vm:InstallViewModel">
+  <ScrollViewer>
+    <StackPanel MaxWidth="760" HorizontalAlignment="Left" Spacing="12">
+      <TextBlock Text="Install" FontSize="28" FontWeight="SemiBold" />
+      <TextBlock TextWrapping="Wrap" Opacity="0.8"
+                 Text="Point this at the Steam copy of Assetto Corsa and the Documents folder inside the Proton prefix. The game itself still runs through Proton." />
+
+      <TextBlock Text="Game folder" />
+      <TextBox Text="{Binding GameRoot}" PlaceholderText="/path/to/steamapps/common/assettocorsa" />
+
+      <TextBlock Text="Proton prefix" />
+      <TextBox Text="{Binding ProtonPrefix}" PlaceholderText=".../compatdata/244210/pfx" />
+
+      <TextBlock Text="Documents / Assetto Corsa" />
+      <TextBox Text="{Binding DocumentsDirectory}" PlaceholderText=".../drive_c/users/steamuser/Documents/Assetto Corsa" />
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Detect" Command="{Binding DetectCommand}" />
+        <Button Content="Save" Command="{Binding SaveCommand}" />
+      </StackPanel>
+
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Source, StringFormat='Source: {0}'}" Opacity="0.7" />
+
+      <StackPanel Spacing="4" Margin="0,8,0,0">
+        <TextBlock Text="{Binding GameRootValid, StringFormat='Game folder is an Assetto Corsa root: {0}'}" />
+        <TextBlock Text="{Binding AcsPresent, StringFormat='acs.exe is present: {0}'}" />
+        <TextBlock Text="{Binding CarsPresent, StringFormat='content/cars is present: {0}'}" />
+        <TextBlock Text="{Binding TracksPresent, StringFormat='content/tracks is present: {0}'}" />
+      </StackPanel>
+
+      <TextBlock Text="Steam roots that Detect searches" Opacity="0.7" Margin="0,12,0,0" />
+      <TextBox Text="{Binding SearchedRoots}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

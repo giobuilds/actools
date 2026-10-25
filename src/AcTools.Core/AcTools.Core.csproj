@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AcTools.Core</RootNamespace>
+    <AssemblyName>AcTools.Core</AssemblyName>
+    <Description>Portable Assetto Corsa file and session primitives.</Description>
+  </PropertyGroup>
+</Project>
