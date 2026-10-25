@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AcManager.Core</RootNamespace>
+    <AssemblyName>AcManager.Core</AssemblyName>
+    <Description>Content library and practice-session launch for the Linux port.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../AcTools.Core/AcTools.Core.csproj" />
+    <ProjectReference Include="../AcTools.Platform.Abstractions/AcTools.Platform.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

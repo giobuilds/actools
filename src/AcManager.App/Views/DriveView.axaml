@@ -1,0 +1,83 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AcManager.App.ViewModels"
+             xmlns:content="using:AcManager.Core.Content"
+             xmlns:conv="using:AcManager.App.Converters"
+             x:Class="AcManager.App.Views.DriveView"
+             x:DataType="vm:DriveViewModel">
+  <Grid ColumnDefinitions="320,*" ColumnSpacing="20">
+    <DockPanel Grid.Column="0">
+      <TextBox DockPanel.Dock="Top" Margin="0,0,0,8" PlaceholderText="Search cars" Text="{Binding Filter}" />
+      <ListBox ItemsSource="{Binding FilteredCars}" SelectedItem="{Binding SelectedCar}">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="content:CarSummary">
+            <StackPanel Margin="2">
+              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding Subtitle}" Opacity="0.65" FontSize="12" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+
+    <ScrollViewer Grid.Column="1">
+      <StackPanel Spacing="10" MaxWidth="520" HorizontalAlignment="Left">
+        <TextBlock Text="Practice" FontSize="28" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+
+        <Border Height="180" CornerRadius="4" ClipToBounds="True" Background="#202020">
+          <Image Source="{Binding PreviewPath, Converter={x:Static conv:FilePathToBitmapConverter.Instance}}" Stretch="UniformToFill" />
+        </Border>
+
+        <TextBlock Text="Skin" />
+        <ComboBox ItemsSource="{Binding Skins}" SelectedItem="{Binding SelectedSkin}" HorizontalAlignment="Stretch" PlaceholderText="No skins">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="content:CarSkin">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <TextBlock Text="Track" />
+        <ComboBox ItemsSource="{Binding Tracks}" SelectedItem="{Binding SelectedTrack}" HorizontalAlignment="Stretch" PlaceholderText="No tracks">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="content:TrackSummary">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <TextBlock Text="Layout" />
+        <ComboBox ItemsSource="{Binding Layouts}" SelectedItem="{Binding SelectedLayout}" HorizontalAlignment="Stretch">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="content:TrackLayout">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <TextBlock Text="Weather" />
+        <ComboBox ItemsSource="{Binding Weather}" SelectedItem="{Binding SelectedWeather}" HorizontalAlignment="Stretch" PlaceholderText="3_clear if none is installed">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="content:WeatherSummary">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <TextBlock Text="Minutes" />
+        <NumericUpDown Minimum="0" Maximum="999" Increment="5" FormatString="0" Value="{Binding DurationMinutes}" Width="140" HorizontalAlignment="Left" />
+
+        <TextBlock Text="Spawn" />
+        <ComboBox ItemsSource="{Binding SpawnSets}" SelectedItem="{Binding SpawnSet}" Width="140" HorizontalAlignment="Left" />
+
+        <Button Content="Drive" Command="{Binding DriveCommand}" HorizontalAlignment="Left" MinWidth="140" Margin="0,8,0,0" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

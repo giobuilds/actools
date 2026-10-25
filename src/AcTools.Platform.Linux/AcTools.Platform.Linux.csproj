@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AcTools.Platform.Linux</RootNamespace>
+    <AssemblyName>AcTools.Platform.Linux</AssemblyName>
+    <Description>Steam, Proton, and XDG integration.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../AcTools.Platform.Abstractions/AcTools.Platform.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

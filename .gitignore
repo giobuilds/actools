@@ -48,6 +48,10 @@ AcManager.VC.*
 Packages/*
 TestResults/*
 */obj/*
+src/**/bin/
+src/**/obj/
+tests/**/bin/
+tests/**/obj/
 
 # Result files
 */bin

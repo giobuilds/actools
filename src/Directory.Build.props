@@ -1,0 +1,15 @@
+<Project>
+  <!--
+    The Linux port targets net10.0 because that is the SDK installed here.
+    The approved plan named net8.0; both are current SDK-style .NET.
+    This file lives under src/ so it does not retarget the .NET Framework 4.5.2 solution.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+</Project>
