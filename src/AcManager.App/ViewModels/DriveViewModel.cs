@@ -124,6 +124,34 @@ public partial class DriveViewModel : ObservableObject
         }
     }
 
+    public void Rescan()
+    {
+        var trackId = SelectedTrack?.Id;
+        var layoutId = SelectedLayout?.Id;
+        var weatherId = SelectedWeather?.Id;
+        _cars = ContentLibrary.ScanCars(_layout.CarsDirectory);
+        Tracks = ContentLibrary.ScanTracks(_layout.TracksDirectory);
+        Weather = ContentLibrary.ScanWeather(_layout.WeatherDirectory);
+
+        TrackSummary? track = trackId == null
+            ? Tracks.FirstOrDefault()
+            : Tracks.FirstOrDefault(item => item.Id == trackId) ?? Tracks.FirstOrDefault();
+        var keptTrack = trackId != null && track?.Id == trackId;
+        SelectedTrack = track;
+        if (keptTrack && SelectedTrack != null) {
+            SelectedLayout = SelectedTrack.Layouts.FirstOrDefault(item => item.Id == layoutId)
+                ?? SelectedTrack.Layouts.FirstOrDefault();
+        }
+
+        SelectedWeather = weatherId == null
+            ? Weather.FirstOrDefault(item => item.Id == "3_clear") ?? Weather.FirstOrDefault()
+            : Weather.FirstOrDefault(item => item.Id == weatherId)
+                ?? Weather.FirstOrDefault(item => item.Id == "3_clear")
+                ?? Weather.FirstOrDefault();
+        ApplyFilter();
+        DriveCommand.NotifyCanExecuteChanged();
+    }
+
     partial void OnFilterChanged(string value) => ApplyFilter();
 
     partial void OnSelectedCarChanged(CarSummary? value)
