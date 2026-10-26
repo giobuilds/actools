@@ -141,7 +141,7 @@ public partial class DriveViewModel : ObservableObject
     {
         _layout = layout;
         LibraryReady = layout.HasGameRoot;
-        _cars = ContentLibrary.ScanCars(layout.CarsDirectory);
+        _cars = ContentLibrary.ScanCars(layout.CarsDirectory, OfficialCarIds.FromGameRoot(layout.GameRoot));
         Tracks = ContentLibrary.ScanTracks(layout.TracksDirectory);
         Weather = ContentLibrary.ScanWeather(layout.WeatherDirectory);
         SelectedTrack = Tracks.FirstOrDefault();
@@ -164,7 +164,7 @@ public partial class DriveViewModel : ObservableObject
         var trackId = SelectedTrack?.Id;
         var layoutId = SelectedLayout?.Id;
         var weatherId = SelectedWeather?.Id;
-        _cars = ContentLibrary.ScanCars(_layout.CarsDirectory);
+        _cars = ContentLibrary.ScanCars(_layout.CarsDirectory, OfficialCarIds.FromGameRoot(_layout.GameRoot));
         Tracks = ContentLibrary.ScanTracks(_layout.TracksDirectory);
         Weather = ContentLibrary.ScanWeather(_layout.WeatherDirectory);
 

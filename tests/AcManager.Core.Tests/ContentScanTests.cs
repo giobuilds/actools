@@ -127,6 +127,38 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void Guids_file_marks_the_listed_car_as_kunos()
+    {
+        var game = Directory.CreateTempSubdirectory("actools-guids-").FullName;
+        try {
+            var cars = Path.Combine(game, "content", "cars");
+            WriteCar(cars, "ks_cup", """{ "name": "Cup", "author": "Someone" }""");
+            WriteCar(cars, "mod_claim", """{ "name": "Claim", "author": "Kunos" }""");
+            WriteCar(cars, "ks_short", """{ "name": "Short" }""");
+            WriteCar(cars, "KS_Mixed", """{ "name": "Mixed" }""");
+            Directory.CreateDirectory(Path.Combine(game, "content", "sfx"));
+            File.WriteAllText(
+                Path.Combine(game, "content", "sfx", "GUIDs.txt"),
+                """
+                {00000000-0000-0000-0000-000000000001} event:/cars/ks_cup/engine
+                not a car line
+                {00000000-0000-0000-0000-000000000002} event:/cars/ks_short
+                {00000000-0000-0000-0000-000000000003} event:/cars/KS_Mixed/engine
+                """);
+
+            var scanned = ContentLibrary.ScanCars(cars, OfficialCarIds.FromGameRoot(game));
+
+            Assert.Equal(CarAuthors.Kunos, scanned.Single(car => car.Id == "ks_cup").Author);
+            Assert.Null(scanned.Single(car => car.Id == "mod_claim").Author);
+            Assert.Null(scanned.Single(car => car.Id == "ks_short").Author);
+            Assert.Null(scanned.Single(car => car.Id == "KS_Mixed").Author);
+            Assert.Empty(OfficialCarIds.FromGameRoot(Path.Combine(game, "missing")));
+        } finally {
+            Directory.Delete(game, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));

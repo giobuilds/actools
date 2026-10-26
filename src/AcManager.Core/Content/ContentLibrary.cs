@@ -10,7 +10,7 @@ public sealed record CarSkin(string Id, string Name, string? PreviewPath);
 
 /// <summary>
 /// Content Manager's author name for an official car. A JSON author of this value is ignored
-/// unless <c>GUIDs.txt</c> lists the car, and this scan does not open that file.
+/// unless <see cref="OfficialCarIds"/> lists the car.
 /// </summary>
 public static class CarAuthors
 {
@@ -62,7 +62,7 @@ public static class ContentLibrary
 {
     private static readonly string[] PreviewNames = ["preview.jpg", "preview.png", "preview.jpeg"];
 
-    public static IReadOnlyList<CarSummary> ScanCars(string? carsDirectory)
+    public static IReadOnlyList<CarSummary> ScanCars(string? carsDirectory, IReadOnlySet<string>? officialCarIds = null)
     {
         if (string.IsNullOrWhiteSpace(carsDirectory) || !Directory.Exists(carsDirectory)) {
             return [];
@@ -89,7 +89,7 @@ public static class ContentLibrary
                 CountryOf(json),
                 YearOf(json, string.IsNullOrEmpty(yearName) ? null : yearName),
                 TextOf(json, "parent"),
-                AuthorOf(json),
+                officialCarIds != null && officialCarIds.Contains(id) ? CarAuthors.Kunos : AuthorOf(json),
                 SpecOf(json, "bhp"),
                 SpecOf(json, "torque"),
                 SpecOf(json, "weight"),

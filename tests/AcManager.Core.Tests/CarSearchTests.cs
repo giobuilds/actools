@@ -83,6 +83,11 @@ public class CarSearchTests
         Assert.True(Matches("parent:ks_mazda_rx7", car));
         Assert.True(Matches("author:reboot", car));
         Assert.False(Matches("kunos+", car));
+        var official = car with { Author = CarAuthors.Kunos };
+        Assert.True(Matches("kunos+", official));
+        Assert.False(Matches("kunos-", official));
+        Assert.True(Matches("kunos-", car));
+        Assert.True(Matches("author:kunos", official));
         Assert.True(Matches("bhp>200", car));
         Assert.False(Matches("power>300", car));
         Assert.True(Matches("torque>250", car));
