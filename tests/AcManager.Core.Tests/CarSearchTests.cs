@@ -101,6 +101,11 @@ public class CarSearchTests
         var versioned = car with { Name = "Cup", Version = "1.23" };
         Assert.True(Matches("version:1.23", versioned));
         Assert.False(Matches("v1.23", versioned));
+        var described = car with { Name = "Cup", Description = "Cup notes v1.2" };
+        Assert.True(Matches("description:notes", described));
+        Assert.True(Matches("desc:v1.2", described));
+        Assert.False(Matches("notes", described));
+        Assert.False(Matches("description:mazda", Mazda));
     }
 
     private static bool Matches(string query, CarSummary car) =>

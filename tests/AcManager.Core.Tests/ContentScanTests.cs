@@ -371,9 +371,24 @@ public class ContentScanTests
         var root = Directory.CreateTempSubdirectory("actools-car-description-").FullName;
         try {
             WriteCar(root, "mod_notes", """{ "name": "Cup", "description": "Cup notes v1.2" }""");
-            var car = Assert.Single(ContentLibrary.ScanCars(root));
-            Assert.Equal("Cup", car.Name);
-            Assert.Null(car.Version);
+            WriteCar(root, "mod_html", """{ "name": "Html", "description": "<b>Fast car</b> v3.0<br>" }""");
+            WriteCar(root, "mod_entity", """{ "name": "Entity", "description": "Fish &amp; chips" }""");
+            WriteCar(root, "mod_blank", """{ "name": "Blank", "description": "<br>" }""");
+
+            var cars = ContentLibrary.ScanCars(root);
+            var notes = cars.Single(car => car.Id == "mod_notes");
+            Assert.Equal("Cup", notes.Name);
+            Assert.Null(notes.Version);
+            Assert.Equal("Cup notes v1.2", notes.Description);
+
+            var html = cars.Single(car => car.Id == "mod_html");
+            Assert.Equal("Html", html.Name);
+            Assert.Null(html.Version);
+            Assert.Equal("Fast car v3.0", html.Description);
+
+            var entity = cars.Single(car => car.Id == "mod_entity");
+            Assert.Equal("Fish & chips", entity.Description);
+            Assert.Null(cars.Single(car => car.Id == "mod_blank").Description);
         } finally {
             Directory.Delete(root, true);
         }

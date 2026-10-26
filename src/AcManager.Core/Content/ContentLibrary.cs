@@ -34,7 +34,8 @@ public sealed record CarSummary(
     string? SpecsTopSpeed = null,
     string? SpecsAcceleration = null,
     string? SpecsPwRatio = null,
-    string? Version = null)
+    string? Version = null,
+    string? Description = null)
 {
     public string Subtitle
     {
@@ -97,7 +98,8 @@ public static class ContentLibrary
                 SpecOf(json, "topspeed"),
                 SpecOf(json, "acceleration"),
                 SpecOf(json, "pwratio"),
-                version));
+                version,
+                ContentDescription.Decode(TextOf(json, "description"))));
         }
 
         cars.Sort(static (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
