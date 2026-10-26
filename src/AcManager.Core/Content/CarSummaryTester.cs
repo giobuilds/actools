@@ -62,6 +62,8 @@ public sealed class CarSummaryTester : ITester<CarSummary>
             case "desc":
             case "description":
                 return nameof(CarSummary.Description);
+            case "url":
+                return nameof(CarSummary.Url);
             case null:
                 return nameof(CarSummary.Name);
             default:
@@ -121,6 +123,8 @@ public sealed class CarSummaryTester : ITester<CarSummary>
             case "desc":
             case "description":
                 return value.Test(car.Description);
+            case "url":
+                return value.Test(car.Url);
             default:
                 return false;
         }

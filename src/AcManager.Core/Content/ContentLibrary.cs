@@ -35,7 +35,8 @@ public sealed record CarSummary(
     string? SpecsAcceleration = null,
     string? SpecsPwRatio = null,
     string? Version = null,
-    string? Description = null)
+    string? Description = null,
+    string? Url = null)
 {
     public string Subtitle
     {
@@ -99,7 +100,8 @@ public static class ContentLibrary
                 SpecOf(json, "acceleration"),
                 SpecOf(json, "pwratio"),
                 version,
-                ContentDescription.Decode(TextOf(json, "description"))));
+                ContentDescription.Decode(TextOf(json, "description")),
+                UrlOf(json)));
         }
 
         cars.Sort(static (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
@@ -327,6 +329,12 @@ public static class ContentLibrary
         }
 
         return author;
+    }
+
+    private static string? UrlOf(JsonElement? element)
+    {
+        var url = TextOf(element, "url")?.Trim();
+        return string.IsNullOrWhiteSpace(url) ? null : url;
     }
 
     private static string? SpecOf(JsonElement? element, string property)

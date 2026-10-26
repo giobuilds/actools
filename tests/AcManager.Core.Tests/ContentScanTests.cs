@@ -395,6 +395,24 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_car_url_is_trimmed()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-car-url-").FullName;
+        try {
+            WriteCar(root, "mod_url", """{ "name": "Cup", "url": "  https://example.com/cars/cup  " }""");
+            WriteCar(root, "mod_blank", """{ "name": "Blank", "url": "   " }""");
+            WriteCar(root, "mod_plain", """{ "name": "Plain" }""");
+
+            var cars = ContentLibrary.ScanCars(root);
+            Assert.Equal("https://example.com/cars/cup", cars.Single(car => car.Id == "mod_url").Url);
+            Assert.Null(cars.Single(car => car.Id == "mod_blank").Url);
+            Assert.Null(cars.Single(car => car.Id == "mod_plain").Url);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));

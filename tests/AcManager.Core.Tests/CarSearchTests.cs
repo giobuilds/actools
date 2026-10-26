@@ -106,6 +106,11 @@ public class CarSearchTests
         Assert.True(Matches("desc:v1.2", described));
         Assert.False(Matches("notes", described));
         Assert.False(Matches("description:mazda", Mazda));
+        var linked = car with { Name = "Cup", Url = "https://example.com/cars/cup" };
+        Assert.True(Matches("url:https://example.com/cars", linked));
+        Assert.False(Matches("url:example.com", linked));
+        Assert.False(Matches("example.com", linked));
+        Assert.False(Matches("url:https://example.com", Mazda));
     }
 
     private static bool Matches(string query, CarSummary car) =>
