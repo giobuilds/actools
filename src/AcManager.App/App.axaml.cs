@@ -1,5 +1,6 @@
 using AcManager.App.ViewModels;
 using AcManager.App.Views;
+using AcManager.Core.Bridge;
 using AcManager.Core.Online;
 using AcTools.Platform.Linux;
 using Avalonia;
@@ -21,7 +22,7 @@ public partial class App : Application
             var launcher = new SteamGameLauncher();
             var openDrive = desktop.Args?.Contains("--drive") == true;
             var invite = InviteLink.TryParseArgs(desktop.Args);
-            var window = new MainWindowViewModel(store, locator, launcher, openDrive);
+            var window = new MainWindowViewModel(store, locator, launcher, openDrive, live: new SessionBridgeClient());
             desktop.MainWindow = new MainWindow {
                 DataContext = window,
             };

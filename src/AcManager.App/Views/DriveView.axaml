@@ -29,6 +29,7 @@
       <StackPanel Spacing="10" MaxWidth="520" HorizontalAlignment="Left">
         <TextBlock Text="{Binding SelectedMode.Name}" FontSize="28" FontWeight="SemiBold" />
         <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding LiveNote}" TextWrapping="Wrap" Opacity="0.8" />
         <Button Content="Open launch log" Command="{Binding OpenLaunchLogCommand}" HorizontalAlignment="Left" />
 
         <TextBlock Text="Mode" />

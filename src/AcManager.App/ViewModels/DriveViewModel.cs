@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
+using AcManager.Core.Bridge;
 using AcManager.Core.Content;
 using AcManager.Core.Sessions;
 using AcTools.Core.Sessions;
@@ -14,6 +15,7 @@ namespace AcManager.App.ViewModels;
 public partial class DriveViewModel : ObservableObject
 {
     private readonly IGameLauncher _launcher;
+    private readonly ISessionBridge? _live;
     private AcInstallLayout _layout = new(null, null, null, "");
     private IReadOnlyList<CarSummary> _cars = [];
     private CancellationTokenSource? _watch;
@@ -102,6 +104,9 @@ public partial class DriveViewModel : ObservableObject
     private string _status = "Choose a car and a track.";
 
     [ObservableProperty]
+    private string _liveNote = SessionBridgeProtocol.OffNote;
+
+    [ObservableProperty]
     private bool _libraryReady;
 
     public IReadOnlyList<string> SpawnSets { get; } = ["PIT", "START"];
@@ -120,10 +125,16 @@ public partial class DriveViewModel : ObservableObject
     [ObservableProperty]
     private DriveModeOption _selectedMode;
 
-    public DriveViewModel(IGameLauncher launcher)
+    public DriveViewModel(IGameLauncher launcher, ISessionBridge? live = null)
     {
         _launcher = launcher;
+        _live = live;
         _selectedMode = Modes[0];
+    }
+
+    public void RefreshLive()
+    {
+        LiveNote = _live == null ? SessionBridgeProtocol.OffNote : _live.ReadNote();
     }
 
     public void UseLayout(AcInstallLayout layout)

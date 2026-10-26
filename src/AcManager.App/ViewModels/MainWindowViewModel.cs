@@ -1,3 +1,4 @@
+using AcManager.Core.Bridge;
 using AcManager.Core.Content;
 using AcManager.Core.Online;
 using AcTools.Platform;
@@ -16,10 +17,11 @@ public partial class MainWindowViewModel : ObservableObject
         bool openDrive = false,
         IOnlineDirectory? servers = null,
         ISteamIdLookup? steamIds = null,
-        IServerContentInstaller? contentInstaller = null)
+        IServerContentInstaller? contentInstaller = null,
+        ISessionBridge? live = null)
     {
         var ids = steamIds ?? new SteamLoginUsersLookup();
-        Drive = new DriveViewModel(launcher);
+        Drive = new DriveViewModel(launcher, live);
         Video = new VideoViewModel();
         Content = new ContentViewModel();
         Settings = new SettingsViewModel();
@@ -39,6 +41,10 @@ public partial class MainWindowViewModel : ObservableObject
             Online.UseLayout(layout);
         });
         Install.Publish();
+        if (openDrive) {
+            Drive.RefreshLive();
+        }
+
         CurrentPage = openDrive ? Drive : Install;
     }
 
@@ -79,7 +85,11 @@ public partial class MainWindowViewModel : ObservableObject
     private void ShowInstall() => CurrentPage = Install;
 
     [RelayCommand]
-    private void ShowDrive() => CurrentPage = Drive;
+    private void ShowDrive()
+    {
+        Drive.RefreshLive();
+        CurrentPage = Drive;
+    }
 
     [RelayCommand]
     private void ShowContent()
