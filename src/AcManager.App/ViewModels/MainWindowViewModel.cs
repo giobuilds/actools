@@ -13,12 +13,14 @@ public partial class MainWindowViewModel : ObservableObject
         Video = new VideoViewModel();
         Content = new ContentViewModel();
         Settings = new SettingsViewModel();
+        Csp = new CspViewModel();
         Content.Installed = Drive.Rescan;
         Install = new InstallViewModel(store, locator, layout => {
             Drive.UseLayout(layout);
             Video.UseLayout(layout);
             Content.UseLayout(layout);
             Settings.UseLayout(layout);
+            Csp.UseLayout(layout);
         });
         Install.Publish();
         CurrentPage = openDrive ? Drive : Install;
@@ -34,6 +36,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     public SettingsViewModel Settings { get; }
 
+    public CspViewModel Csp { get; }
+
     public string Version => AppVersion.Current;
 
     [ObservableProperty]
@@ -48,6 +52,8 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsVideoPage => ReferenceEquals(CurrentPage, Video);
 
     public bool IsSettingsPage => ReferenceEquals(CurrentPage, Settings);
+
+    public bool IsCspPage => ReferenceEquals(CurrentPage, Csp);
 
     [RelayCommand]
     private void ShowInstall() => CurrentPage = Install;
@@ -76,6 +82,13 @@ public partial class MainWindowViewModel : ObservableObject
         CurrentPage = Settings;
     }
 
+    [RelayCommand]
+    private void ShowCsp()
+    {
+        Csp.Reload();
+        CurrentPage = Csp;
+    }
+
     partial void OnCurrentPageChanged(ObservableObject value)
     {
         OnPropertyChanged(nameof(IsInstallPage));
@@ -83,5 +96,6 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(IsContentPage));
         OnPropertyChanged(nameof(IsVideoPage));
         OnPropertyChanged(nameof(IsSettingsPage));
+        OnPropertyChanged(nameof(IsCspPage));
     }
 }

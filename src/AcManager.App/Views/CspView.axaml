@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AcManager.App.ViewModels"
+             x:Class="AcManager.App.Views.CspView"
+             x:DataType="vm:CspViewModel">
+  <ScrollViewer>
+    <StackPanel MaxWidth="640" HorizontalAlignment="Left" Spacing="10">
+      <TextBlock Text="Custom Shaders Patch" FontSize="28" FontWeight="SemiBold" />
+      <TextBlock TextWrapping="Wrap" Opacity="0.8"
+                 Text="The version is read from the game folder. Patch enablement and Weather FX are saved in the prefix cfg/extension folder. Force-feedback post-processing is saved in cfg/ff_post_process.ini. The game reads these the next time a session starts." />
+
+      <TextBlock Text="{Binding VersionLabel, StringFormat='Installed: {0}'}" />
+      <CheckBox Content="Custom Shaders Patch" IsChecked="{Binding PatchEnabled}" IsEnabled="{Binding Installed}" />
+      <CheckBox Content="Weather FX" IsChecked="{Binding WeatherFxEnabled}" IsEnabled="{Binding Installed}" />
+
+      <TextBlock Text="Force feedback post-processing" FontSize="20" FontWeight="SemiBold" Margin="0,8,0,0" />
+      <CheckBox Content="Enabled" IsChecked="{Binding FfbEnabled}" />
+      <TextBlock Text="Mode" />
+      <ComboBox ItemsSource="{Binding FfbModes}" SelectedItem="{Binding FfbMode}" HorizontalAlignment="Left" MinWidth="160">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:FfbMode">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <TextBlock Text="Gamma" />
+      <NumericUpDown Minimum="0" Maximum="2" Increment="0.01" FormatString="0.##" Value="{Binding Gamma}" Width="160" HorizontalAlignment="Left" />
+      <TextBlock Text="LUT" />
+      <TextBlock Text="No LUT files are in the cfg folder." IsVisible="{Binding !HasCurves}" Opacity="0.7" />
+      <ComboBox ItemsSource="{Binding Curves}" SelectedItem="{Binding Curve}" IsVisible="{Binding HasCurves}" HorizontalAlignment="Left" MinWidth="240" />
+
+      <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+        <Button Content="Reload" Command="{Binding ReloadCommand}" />
+        <Button Content="Save" Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}" />
+      </StackPanel>
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
