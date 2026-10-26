@@ -3,6 +3,8 @@
     <RootNamespace>AcTools.Platform.Linux</RootNamespace>
     <AssemblyName>AcTools.Platform.Linux</AssemblyName>
     <Description>Steam, Proton, and XDG integration.</Description>
+    <!-- LibraryImport source generation uses unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../AcTools.Platform.Abstractions/AcTools.Platform.Abstractions.csproj" />

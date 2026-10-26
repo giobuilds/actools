@@ -13,6 +13,14 @@
       <TextBlock Text="{Binding InputMethod, StringFormat='Input method: {0}'}" />
       <TextBlock Text="No controllers are saved in controls.ini." IsVisible="{Binding !HasControllers}" Opacity="0.7" />
       <ItemsControl ItemsSource="{Binding Controllers}" IsVisible="{Binding HasControllers}" />
+      <TextBlock Text="Connected devices" />
+      <ItemsControl ItemsSource="{Binding Connected}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
       <TextBlock Text="Force feedback %" />
       <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding ForceFeedback}" Width="160" HorizontalAlignment="Left" />
       <TextBlock Text="Steering lock" />

@@ -122,6 +122,43 @@ public class SettingsPageTests
         }
     }
 
+    [Fact]
+    public void Connected_device_with_a_different_name_asks_to_bind_once()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-settings-sdl-").FullName;
+        try {
+            var documents = Path.Combine(root, "documents");
+            var controls = ControlSettingsFile.PathFor(documents);
+            Directory.CreateDirectory(Path.GetDirectoryName(controls)!);
+            File.WriteAllText(controls, "[HEADER]\r\nINPUT_METHOD=WHEEL\r\n\r\n[CONTROLLERS]\r\nCON0=Logitech G29 Driving Force Racing Wheel\r\n\r\n[STEER]\r\nFF_GAIN=1\r\nLOCK=900\r\n\r\n[GEAR_UP]\r\nBUTTON=12\r\n");
+
+            var settings = new SettingsViewModel(new FakeDevices());
+            settings.UseLayout(new AcInstallLayout(null, documents, null, "Steam"));
+
+            Assert.Contains("Logitech G920 Driving Force Racing Wheel  046D:C262", settings.Connected);
+            Assert.Contains(ConnectedControllers.BindOnce, settings.Connected);
+            Assert.Contains("0  Logitech G29 Driving Force Racing Wheel", settings.Controllers);
+
+            settings.ForceFeedback = 40;
+            settings.SaveCommand.Execute(null);
+
+            var text = File.ReadAllText(controls);
+            Assert.Contains("FF_GAIN=0.4", text, StringComparison.Ordinal);
+            Assert.Contains("CON0=Logitech G29 Driving Force Racing Wheel", text, StringComparison.Ordinal);
+            Assert.Contains("BUTTON=12", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("G920", text, StringComparison.Ordinal);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    private sealed class FakeDevices : IInputDevices
+    {
+        public InputDeviceList List() => new(
+            [new InputDevice("Logitech G920 Driving Force Racing Wheel", "030000006d04000062c2000000000000", 0x046d, 0xc262)],
+            null);
+    }
+
     private sealed class FixedLocator : IInstallLocator
     {
         private readonly AcInstallLayout _layout;
