@@ -82,6 +82,7 @@ public class SteamLoginUsersTests
         var paths = SteamLoginUsers.CandidatePaths().ToArray();
         Assert.Contains(paths, path => path.Replace('\\', '/').EndsWith(".local/share/Steam/config/loginusers.vdf", StringComparison.Ordinal));
         Assert.Contains(paths, path => path.Replace('\\', '/').EndsWith(".var/app/com.valvesoftware.Steam/data/Steam/config/loginusers.vdf", StringComparison.Ordinal));
+        Assert.Contains(paths, path => path.Replace('\\', '/').EndsWith(".var/app/com.valvesoftware.Steam/.local/share/Steam/config/loginusers.vdf", StringComparison.Ordinal));
         Assert.Contains(paths, path => path.Replace('\\', '/').EndsWith("snap/steam/common/.local/share/Steam/config/loginusers.vdf", StringComparison.Ordinal));
     }
 }

@@ -143,7 +143,9 @@ public class ProtonSessionTests
             Assert.EndsWith(
                 Path.Combine("steamapps", "common", "assettocorsa"),
                 File.ReadAllText(Path.Combine(record, "cwd")).Trim());
-            Assert.NotEqual(OwnSessionId(), File.ReadAllText(Path.Combine(record, "sid")).Trim());
+            var sidPath = Path.Combine(record, "sid");
+            WaitFor(sidPath);
+            Assert.NotEqual(OwnSessionId(), File.ReadAllText(sidPath).Trim());
         } finally {
             Directory.Delete(root, true);
         }

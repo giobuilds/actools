@@ -64,7 +64,9 @@ public sealed class SteamAcDiscovery : IInstallLocator
         roots.Add(Path.Combine(home, ".local", "share", "Steam"));
         roots.Add(Path.Combine(home, ".steam", "steam"));
         roots.Add(Path.Combine(home, ".steam", "root"));
-        roots.Add(Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam"));
+        var flatpakApp = Path.Combine(home, ".var", "app", "com.valvesoftware.Steam");
+        roots.Add(Path.Combine(flatpakApp, "data", "Steam"));
+        roots.Add(Path.Combine(flatpakApp, ".local", "share", "Steam"));
         roots.Add(Path.Combine(home, "snap", "steam", "common", ".local", "share", "Steam"));
         return roots;
     }

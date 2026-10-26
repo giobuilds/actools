@@ -10,6 +10,8 @@ public sealed class SteamGameLauncher : IGameLauncher
 {
     private const string SetsidPath = "/usr/bin/setsid";
 
+    private const string FlatpakPath = "/usr/bin/flatpak";
+
     private const string LogScript = "exec \"$0\" \"$@\" </dev/null >>\"$ACTOOLS_LAUNCH_LOG\" 2>&1";
 
     /// <summary>
@@ -23,6 +25,8 @@ public sealed class SteamGameLauncher : IGameLauncher
 
     private readonly Func<bool>? _steamIsRunning;
 
+    private readonly string _flatpakExecutable;
+
     public SteamGameLauncher()
         : this(SteamAcDiscovery.GetDefaultSteamRoots(), XdgAppPaths.DefaultStateDirectory())
     {
@@ -33,11 +37,16 @@ public sealed class SteamGameLauncher : IGameLauncher
     {
     }
 
-    public SteamGameLauncher(IReadOnlyList<string> steamRoots, string stateDirectory, Func<bool>? steamIsRunning = null)
+    public SteamGameLauncher(
+        IReadOnlyList<string> steamRoots,
+        string stateDirectory,
+        Func<bool>? steamIsRunning = null,
+        string? flatpakExecutable = null)
     {
         _steamRoots = steamRoots;
         _stateDirectory = Path.GetFullPath(stateDirectory);
         _steamIsRunning = steamIsRunning;
+        _flatpakExecutable = string.IsNullOrWhiteSpace(flatpakExecutable) ? FlatpakPath : flatpakExecutable;
         LaunchLogPath = Path.Combine(_stateDirectory, "launch.log");
     }
 
@@ -64,31 +73,45 @@ public sealed class SteamGameLauncher : IGameLauncher
             return GameLaunchStatus.SteamNotRunning;
         }
 
+        var insideFlatpak = FlatpakSteam.Owns(command.ProtonScript) || FlatpakSteam.Owns(command.SteamClientPath);
+        if (insideFlatpak && !File.Exists(_flatpakExecutable)) {
+            LaunchDetail = "Flatpak is not installed, so this Steam prefix cannot be started.";
+            return GameLaunchStatus.LaunchFailed;
+        }
+
         string? logPath = null;
         try {
             logPath = PrepareLog();
             var start = new ProcessStartInfo {
-                FileName = command.ProtonScript,
                 WorkingDirectory = command.WorkingDirectory,
                 UseShellExecute = false,
             };
-            start.ArgumentList.Add(ProtonSession.LaunchVerb);
-            start.ArgumentList.Add(command.GameExecutable);
-            start.Environment["STEAM_COMPAT_DATA_PATH"] = command.CompatDataPath;
-            start.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = command.SteamClientPath;
-            start.Environment["STEAM_COMPAT_INSTALL_PATH"] = command.WorkingDirectory;
-            if (!string.IsNullOrEmpty(command.LibraryPath)) {
-                start.Environment["STEAM_COMPAT_LIBRARY_PATHS"] = command.LibraryPath;
+            if (insideFlatpak) {
+                start.FileName = _flatpakExecutable;
+                foreach (var argument in FlatpakSteam.Arguments(command)) {
+                    start.ArgumentList.Add(argument);
+                }
+            } else {
+                start.FileName = command.ProtonScript;
+                start.ArgumentList.Add(ProtonSession.LaunchVerb);
+                start.ArgumentList.Add(command.GameExecutable);
+                start.Environment["STEAM_COMPAT_DATA_PATH"] = command.CompatDataPath;
+                start.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = command.SteamClientPath;
+                start.Environment["STEAM_COMPAT_INSTALL_PATH"] = command.WorkingDirectory;
+                if (!string.IsNullOrEmpty(command.LibraryPath)) {
+                    start.Environment["STEAM_COMPAT_LIBRARY_PATHS"] = command.LibraryPath;
+                }
+
+                var appId = AcInstallLayout.AssettoCorsaAppId.ToString();
+                start.Environment["STEAM_COMPAT_APP_ID"] = appId;
+                start.Environment["SteamAppId"] = appId;
+                start.Environment["SteamGameId"] = appId;
+                start.Environment["SteamOverlayGameId"] = appId;
             }
 
-            var appId = AcInstallLayout.AssettoCorsaAppId.ToString();
-            start.Environment["STEAM_COMPAT_APP_ID"] = appId;
-            start.Environment["SteamAppId"] = appId;
-            start.Environment["SteamGameId"] = appId;
-            start.Environment["SteamOverlayGameId"] = appId;
             start.Environment["ACTOOLS_LAUNCH_LOG"] = logPath;
             StartAwayFromTheTerminal(start);
-            LaunchDetail = "Proton output is in " + logPath + ".";
+            LaunchDetail = (insideFlatpak ? "Flatpak Proton output is in " : "Proton output is in ") + logPath + ".";
             return GameLaunchStatus.SessionStarted;
         } catch (Exception ex) when (ex is Win32Exception or IOException or InvalidOperationException or UnauthorizedAccessException) {
             LaunchDetail = logPath == null
