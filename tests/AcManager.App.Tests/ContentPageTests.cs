@@ -111,6 +111,72 @@ public class ContentPageTests
         }
     }
 
+    [Fact]
+    public async Task Remove_asks_once_then_deletes_the_added_car_and_refreshes_drive()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-content-remove-").FullName;
+        try {
+            var game = Path.Combine(root, "game");
+            Directory.CreateDirectory(Path.Combine(game, "content", "cars", "ks_existing", "ui"));
+            Directory.CreateDirectory(Path.Combine(game, "content", "cars", "f1_2026_rb22", "ui"));
+            Directory.CreateDirectory(Path.Combine(game, "content", "cars", "other_mod", "ui"));
+            Directory.CreateDirectory(Path.Combine(game, "content", "tracks", "spa", "ui"));
+            Directory.CreateDirectory(Path.Combine(game, "content", "tracks", "chq_sepang", "ui"));
+            Directory.CreateDirectory(Path.Combine(game, "content", "weather", "3_clear"));
+            Directory.CreateDirectory(Path.Combine(game, "content", "sfx"));
+            File.WriteAllText(Path.Combine(game, "acs.exe"), "");
+            File.WriteAllText(Path.Combine(game, "content", "sfx", "GUIDs.txt"), "{a} event:/cars/ks_existing/engine\n");
+            File.WriteAllText(Path.Combine(game, "content", "cars", "ks_existing", "ui", "ui_car.json"), "{\"name\":\"Existing\"}");
+            File.WriteAllText(Path.Combine(game, "content", "cars", "f1_2026_rb22", "ui", "ui_car.json"), "{\"name\":\"F1 Red Bull RB22 2026\"}");
+            File.WriteAllText(Path.Combine(game, "content", "cars", "other_mod", "ui", "ui_car.json"), "{\"name\":\"Other Mod\"}");
+            File.WriteAllText(Path.Combine(game, "content", "tracks", "spa", "ui", "ui_track.json"), "{\"name\":\"Spa\",\"tags\":[\"circuit\",\"original\"]}");
+            File.WriteAllText(Path.Combine(game, "content", "tracks", "chq_sepang", "ui", "ui_track.json"), "{\"name\":\"Sepang 2026\",\"author\":\"Mod\",\"tags\":[\"circuit\"]}");
+            File.WriteAllText(Path.Combine(game, "content", "weather", "3_clear", "weather.ini"), "[LAUNCHER]\r\nNAME=Clear\r\n");
+
+            var window = new MainWindowViewModel(
+                new InstallSettingsStore(new XdgAppPaths(Path.Combine(root, "config"))),
+                new FixedLocator(new AcInstallLayout(game, Path.Combine(root, "docs"), null, "Steam")),
+                new RecordingLauncher());
+            window.ShowContentCommand.Execute(null);
+            window.Drive.Status = "Assetto Corsa exited.";
+            window.Drive.SelectedCar = window.Drive.FilteredCars.First(car => car.Id == "f1_2026_rb22");
+            window.Drive.SelectedTrack = window.Drive.Tracks.First(track => track.Id == "spa");
+
+            Assert.Equal(2, window.Content.Cars.Count);
+            Assert.Contains(window.Content.Cars, car => car.Id == "f1_2026_rb22");
+            Assert.DoesNotContain(window.Content.Cars, car => car.Id == "ks_existing");
+            var sepang = Assert.Single(window.Content.Tracks);
+            Assert.Equal("chq_sepang", sepang.Id);
+
+            window.Content.SelectedCar = window.Content.Cars.First(car => car.Id == "f1_2026_rb22");
+            await window.Content.RemoveCarCommand.ExecuteAsync(null);
+
+            Assert.True(File.Exists(Path.Combine(game, "content", "cars", "f1_2026_rb22", "ui", "ui_car.json")));
+            Assert.Equal("Remove f1_2026_rb22", window.Content.RemoveCarText);
+            Assert.Contains("Press the button again", window.Content.Status, StringComparison.Ordinal);
+
+            window.Content.SelectedCar = window.Content.Cars.First(car => car.Id == "other_mod");
+            Assert.Equal("Remove car", window.Content.RemoveCarText);
+            Assert.True(File.Exists(Path.Combine(game, "content", "cars", "f1_2026_rb22", "ui", "ui_car.json")));
+
+            window.Content.SelectedCar = window.Content.Cars.First(car => car.Id == "f1_2026_rb22");
+            await window.Content.RemoveCarCommand.ExecuteAsync(null);
+            await window.Content.RemoveCarCommand.ExecuteAsync(null);
+
+            Assert.False(Directory.Exists(Path.Combine(game, "content", "cars", "f1_2026_rb22")));
+            Assert.True(File.Exists(Path.Combine(game, "content", "cars", "ks_existing", "ui", "ui_car.json")));
+            Assert.DoesNotContain(window.Content.Cars, car => car.Id == "f1_2026_rb22");
+            Assert.DoesNotContain(window.Drive.FilteredCars, car => car.Id == "f1_2026_rb22");
+            Assert.NotEqual("f1_2026_rb22", window.Drive.SelectedCar?.Id);
+            Assert.Equal("Removed car f1_2026_rb22.", window.Content.Status);
+            Assert.Equal("Assetto Corsa exited.", window.Drive.Status);
+            Assert.Equal("spa", window.Drive.SelectedTrack?.Id);
+            Assert.Equal("chq_sepang", window.Content.Tracks[0].Id);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static void WriteZip(string path, params (string Name, string Text)[] files)
     {
         using var archive = ZipFile.Open(path, ZipArchiveMode.Create);

@@ -1,4 +1,5 @@
 using AcTools.Platform;
+using AcManager.App;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -29,6 +30,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     public ContentViewModel Content { get; }
 
+    public string Version => AppVersion.Current;
+
     [ObservableProperty]
     private ObservableObject _currentPage = null!;
 
@@ -47,7 +50,11 @@ public partial class MainWindowViewModel : ObservableObject
     private void ShowDrive() => CurrentPage = Drive;
 
     [RelayCommand]
-    private void ShowContent() => CurrentPage = Content;
+    private void ShowContent()
+    {
+        Content.Reload();
+        CurrentPage = Content;
+    }
 
     [RelayCommand]
     private void ShowVideo()

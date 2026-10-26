@@ -1,13 +1,14 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AcManager.App.ViewModels"
+             xmlns:content="using:AcManager.Core.Content"
              x:Class="AcManager.App.Views.ContentView"
              x:DataType="vm:ContentViewModel">
   <ScrollViewer>
     <StackPanel MaxWidth="760" HorizontalAlignment="Left" Spacing="12">
       <TextBlock Text="Content" FontSize="28" FontWeight="SemiBold" />
       <TextBlock TextWrapping="Wrap" Opacity="0.8"
-                 Text="Install a car or a track from a .zip into the game content folder. The archive needs a ui/ui_car.json or ui/ui_track.json. A folder that is already there is left alone. 7z is not supported yet." />
+                 Text="Install a car or a track from a .zip into the game content folder. The archive needs a ui/ui_car.json or ui/ui_track.json. A folder that is already there is left alone. 7z is not supported yet. Added cars and tracks can be removed below. Original game content stays installed." />
 
       <TextBlock Text="Archive" />
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -17,6 +18,47 @@
 
       <Button Content="Install" Command="{Binding InstallCommand}" HorizontalAlignment="Left" />
       <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+
+      <TextBlock Text="Added cars" />
+      <TextBlock Text="{Binding RemovalNote}" TextWrapping="Wrap" Opacity="0.8" />
+      <TextBlock Text="No added cars." IsVisible="{Binding ShowNoCars}" Opacity="0.7" />
+      <ListBox ItemsSource="{Binding Cars}" SelectedItem="{Binding SelectedCar}" MaxHeight="160"
+               IsVisible="{Binding !ShowNoCars}">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="content:RemovablePiece">
+            <StackPanel Margin="2">
+              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding Subtitle}" Opacity="0.65" FontSize="12" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <Button Content="{Binding RemoveCarText}" Command="{Binding RemoveCarCommand}" HorizontalAlignment="Left" />
+
+      <TextBlock Text="Added tracks" />
+      <TextBlock Text="No added tracks." IsVisible="{Binding ShowNoTracks}" Opacity="0.7" />
+      <ListBox ItemsSource="{Binding Tracks}" SelectedItem="{Binding SelectedTrack}" MaxHeight="160"
+               IsVisible="{Binding !ShowNoTracks}">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="content:RemovablePiece">
+            <StackPanel Margin="2">
+              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding Subtitle}" Opacity="0.65" FontSize="12" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <Button Content="{Binding RemoveTrackText}" Command="{Binding RemoveTrackCommand}" HorizontalAlignment="Left" />
     </StackPanel>
   </ScrollViewer>
 </UserControl>
