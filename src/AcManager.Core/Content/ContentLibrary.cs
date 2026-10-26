@@ -33,7 +33,10 @@ public sealed record CarSummary(
     string? SpecsWeight = null,
     string? SpecsTopSpeed = null,
     string? SpecsAcceleration = null,
-    string? SpecsPwRatio = null)
+    string? SpecsPwRatio = null,
+    string? Version = null,
+    string? Description = null,
+    string? Url = null)
 {
     public string Subtitle
     {
@@ -49,11 +52,31 @@ public sealed record CarSummary(
     public CarSkin? DefaultSkin => Skins.Count == 0 ? null : Skins[0];
 }
 
-public sealed record TrackLayout(string Id, string Name);
+public sealed record TrackLayout(
+    string Id,
+    string Name,
+    string? Version = null,
+    string? Description = null,
+    string? City = null,
+    string? SpecsLength = null,
+    string? SpecsPitboxes = null,
+    string? SpecsWidth = null);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
     public string Subtitle => Layouts.Count <= 1 ? Id : Id + "  ·  " + Layouts.Count.ToString(CultureInfo.InvariantCulture) + " layouts";
+
+    /// <summary>City of the main layout. Content Manager stores city on each layout.</summary>
+    public string? City => Layouts.Count == 0 ? null : Layouts[0].City;
+
+    /// <summary>Length text of the main layout. The kilometre conversion stays unread.</summary>
+    public string? SpecsLength => Layouts.Count == 0 ? null : Layouts[0].SpecsLength;
+
+    /// <summary>Pit box text of the main layout. The numeric parse stays unread.</summary>
+    public string? SpecsPitboxes => Layouts.Count == 0 ? null : Layouts[0].SpecsPitboxes;
+
+    /// <summary>Width text of the main layout. The metre conversion stays unread.</summary>
+    public string? SpecsWidth => Layouts.Count == 0 ? null : Layouts[0].SpecsWidth;
 }
 
 public sealed record WeatherSummary(string Id, string Name);
@@ -77,8 +100,8 @@ public static class ContentLibrary
             var id = Path.GetFileName(directory);
             var json = ReadUiObject(Path.Combine(directory, "ui", "ui_car.json"));
             var jsonName = StringOf(json, "name");
-            var name = jsonName ?? id;
-            var yearName = jsonName?.Trim();
+            var trimmedName = jsonName?.Trim();
+            var (name, version) = SplitVersion(id, trimmedName, TextOf(json, "version"));
             cars.Add(new CarSummary(
                 id,
                 name,
@@ -87,7 +110,7 @@ public static class ContentLibrary
                 ScanSkins(directory),
                 TagsOf(json),
                 CountryOf(json),
-                YearOf(json, string.IsNullOrEmpty(yearName) ? null : yearName),
+                YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName),
                 TextOf(json, "parent"),
                 officialCarIds != null && officialCarIds.Contains(id) ? CarAuthors.Kunos : AuthorOf(json),
                 SpecOf(json, "bhp"),
@@ -95,7 +118,10 @@ public static class ContentLibrary
                 SpecOf(json, "weight"),
                 SpecOf(json, "topspeed"),
                 SpecOf(json, "acceleration"),
-                SpecOf(json, "pwratio")));
+                SpecOf(json, "pwratio"),
+                version,
+                ContentDescription.Decode(TextOf(json, "description")),
+                UrlOf(json)));
         }
 
         cars.Sort(static (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
@@ -131,18 +157,61 @@ public static class ContentLibrary
                     }
 
                     var json = ReadUiObject(layoutJson);
+                    var layoutId = Path.GetFileName(layoutDirectory);
+                    var (layoutName, layoutVersion) = SplitVersion(
+                        layoutId,
+                        StringOf(json, "name")?.Trim(),
+                        TextOf(json, "version"));
+                    var (version, description) = DescriptionVersion(layoutVersion, json);
                     found.Add(new TrackLayoutInfo(
-                        Path.GetFileName(layoutDirectory),
-                        StringOf(json, "name"),
-                        NumberOf(json, "priority")));
+                        layoutId,
+                        layoutName,
+                        NumberOf(json, "priority"),
+                        version,
+                        description,
+                        TextOf(json, "city"),
+                        LengthOf(json),
+                        PitboxesOf(json),
+                        WidthOf(json)));
                 }
+            }
+
+            string rootName;
+            string? rootVersion;
+            string? rootDescription;
+            string? rootCity;
+            string? rootLength;
+            string? rootPitboxes;
+            string? rootWidth;
+            if (rootPresent) {
+                var rootElement = ReadUiObject(rootJson);
+                (rootName, rootVersion) = SplitVersion(id, StringOf(rootElement, "name")?.Trim(), TextOf(rootElement, "version"));
+                (rootVersion, rootDescription) = DescriptionVersion(rootVersion, rootElement);
+                rootCity = TextOf(rootElement, "city");
+                rootLength = LengthOf(rootElement);
+                rootPitboxes = PitboxesOf(rootElement);
+                rootWidth = WidthOf(rootElement);
+            } else {
+                rootName = id;
+                rootVersion = null;
+                rootDescription = null;
+                rootCity = null;
+                rootLength = null;
+                rootPitboxes = null;
+                rootWidth = null;
             }
 
             var layouts = TrackLayoutOrder.Arrange(
                 id,
                 rootPresent,
-                rootPresent ? NameOf(rootJson, id) : id,
-                found);
+                rootName,
+                found,
+                rootVersion,
+                rootDescription,
+                rootCity,
+                rootLength,
+                rootPitboxes,
+                rootWidth);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
@@ -219,6 +288,58 @@ public static class ContentLibrary
         return false;
     }
 
+    private static (string Name, string? Version) SplitVersion(string fallback, string? trimmedName, string? jsonVersion)
+    {
+        var version = jsonVersion?.Trim();
+        if (string.IsNullOrEmpty(version)) {
+            version = null;
+        }
+
+        if (string.IsNullOrEmpty(trimmedName)) {
+            return (fallback, version);
+        }
+
+        if (version != null) {
+            return (trimmedName, version);
+        }
+
+        var parsed = CarVersion.FromName(trimmedName, out var stripped);
+        return parsed == null ? (trimmedName, null) : (stripped, parsed);
+    }
+
+    /// <summary>
+    /// <c>TrackObjectBase.LoadData</c> reads a trailing version from the description
+    /// when the JSON and the name left the version empty.
+    /// </summary>
+    private static (string? Version, string? Description) DescriptionVersion(string? version, JsonElement? json)
+    {
+        var description = ContentDescription.Decode(TextOf(json, "description"));
+        if (version != null || description == null) {
+            return (version, description);
+        }
+
+        var parsed = CarVersion.FromName(description, out var shortened);
+        return parsed == null ? (null, description) : (parsed, shortened);
+    }
+
+    /// <summary>
+    /// <c>TrackObjectBase.SpecsLength</c> trims the JSON text. An all-space value becomes empty.
+    /// The kilometre conversion stays unread.
+    /// </summary>
+    private static string? LengthOf(JsonElement? element) => TextOf(element, "length")?.Trim();
+
+    /// <summary>
+    /// <c>TrackObjectBase.SpecsPitboxes</c> trims the JSON text. An all-space value becomes empty.
+    /// The numeric parse stays unread.
+    /// </summary>
+    private static string? PitboxesOf(JsonElement? element) => TextOf(element, "pitboxes")?.Trim();
+
+    /// <summary>
+    /// <c>TrackObjectBase.SpecsWidth</c> trims the JSON text. An all-space value becomes empty.
+    /// The metre conversion stays unread.
+    /// </summary>
+    private static string? WidthOf(JsonElement? element) => TextOf(element, "width")?.Trim();
+
     private static IReadOnlyList<string> TagsOf(JsonElement? element)
     {
         if (!TryObject(element, out var car)
@@ -272,6 +393,12 @@ public static class ContentLibrary
         }
 
         return author;
+    }
+
+    private static string? UrlOf(JsonElement? element)
+    {
+        var url = TextOf(element, "url")?.Trim();
+        return string.IsNullOrWhiteSpace(url) ? null : url;
     }
 
     private static string? SpecOf(JsonElement? element, string property)
@@ -386,12 +513,6 @@ public static class ContentLibrary
         }
 
         return null;
-    }
-
-    private static string NameOf(string jsonPath, string fallback)
-    {
-        var json = ReadUiObject(jsonPath);
-        return StringOf(json, "name") ?? fallback;
     }
 
     private static string? StringOf(JsonElement? element, string property)

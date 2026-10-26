@@ -57,6 +57,13 @@ public sealed class CarSummaryTester : ITester<CarSummary>
             case "pw":
             case "pwratio":
                 return nameof(CarSummary.SpecsPwRatio);
+            case "version":
+                return nameof(CarSummary.Version);
+            case "desc":
+            case "description":
+                return nameof(CarSummary.Description);
+            case "url":
+                return nameof(CarSummary.Url);
             case null:
                 return nameof(CarSummary.Name);
             default:
@@ -111,6 +118,13 @@ public sealed class CarSummaryTester : ITester<CarSummary>
             case "pw":
             case "pwratio":
                 return value.Test(car.SpecsPwRatio);
+            case "version":
+                return value.Test(car.Version);
+            case "desc":
+            case "description":
+                return value.Test(car.Description);
+            case "url":
+                return value.Test(car.Url);
             default:
                 return false;
         }

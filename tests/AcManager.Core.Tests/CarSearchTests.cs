@@ -98,6 +98,19 @@ public class CarSearchTests
         Assert.True(Matches("speed:250", car));
         Assert.True(Matches("pw<6", car));
         Assert.True(Matches("pwratio:5", car));
+        var versioned = car with { Name = "Cup", Version = "1.23" };
+        Assert.True(Matches("version:1.23", versioned));
+        Assert.False(Matches("v1.23", versioned));
+        var described = car with { Name = "Cup", Description = "Cup notes v1.2" };
+        Assert.True(Matches("description:notes", described));
+        Assert.True(Matches("desc:v1.2", described));
+        Assert.False(Matches("notes", described));
+        Assert.False(Matches("description:mazda", Mazda));
+        var linked = car with { Name = "Cup", Url = "https://example.com/cars/cup" };
+        Assert.True(Matches("url:https://example.com/cars", linked));
+        Assert.False(Matches("url:example.com", linked));
+        Assert.False(Matches("example.com", linked));
+        Assert.False(Matches("url:https://example.com", Mazda));
     }
 
     private static bool Matches(string query, CarSummary car) =>
