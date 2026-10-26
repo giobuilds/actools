@@ -299,6 +299,87 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_track_description_can_carry_the_version()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-description-").FullName;
+        try {
+            WriteTrack(root, "mod_notes", """{ "name": "Spa", "description": "Layout notes v1.4" }""");
+            WriteTrack(root, "mod_locked", """{ "name": "Spa", "version": "2", "description": "Notes v9.9" }""");
+            WriteTrack(root, "mod_named", """{ "name": "Spa v1.2", "description": "Notes v9.9" }""");
+            WriteTrack(root, "mod_html", """{ "name": "Html", "description": "<b>Fast circuit</b> v3.0<br>" }""");
+            WriteTrack(root, "mod_entity", """{ "name": "Entity", "description": "Fish &amp; chips v1.0" }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain", "description": "Just a circuit" }""");
+            WriteTrack(root, "mod_lines", """{ "name": "Lines", "description": "Line one\nLine two v1.2" }""");
+            WriteTrack(root, "mod_tab", """{ "name": "Tab", "description": "Fast\tcircuit v1.2" }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "description": "<br>" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup Circuit" }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix", "description": "Grand Prix notes v2.5" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var notes = tracks.Single(track => track.Id == "mod_notes");
+            Assert.Equal("Spa", notes.Name);
+            Assert.Equal("1.4", notes.Layouts[0].Version);
+            Assert.Equal("Layout notes", notes.Layouts[0].Description);
+
+            var locked = tracks.Single(track => track.Id == "mod_locked");
+            Assert.Equal("2", locked.Layouts[0].Version);
+            Assert.Equal("Notes v9.9", locked.Layouts[0].Description);
+
+            var named = tracks.Single(track => track.Id == "mod_named");
+            Assert.Equal("Spa", named.Name);
+            Assert.Equal("1.2", named.Layouts[0].Version);
+            Assert.Equal("Notes v9.9", named.Layouts[0].Description);
+
+            var html = tracks.Single(track => track.Id == "mod_html");
+            Assert.Equal("3.0", html.Layouts[0].Version);
+            Assert.Equal("Fast circuit", html.Layouts[0].Description);
+
+            var entity = tracks.Single(track => track.Id == "mod_entity");
+            Assert.Equal("1.0", entity.Layouts[0].Version);
+            Assert.Equal("Fish & chips", entity.Layouts[0].Description);
+
+            var plain = tracks.Single(track => track.Id == "mod_plain");
+            Assert.Null(plain.Layouts[0].Version);
+            Assert.Equal("Just a circuit", plain.Layouts[0].Description);
+
+            var lines = tracks.Single(track => track.Id == "mod_lines");
+            Assert.Null(lines.Layouts[0].Version);
+            Assert.Equal("Line one\nLine two v1.2", lines.Layouts[0].Description);
+
+            var tab = tracks.Single(track => track.Id == "mod_tab");
+            Assert.Equal("1.2", tab.Layouts[0].Version);
+            Assert.Equal("Fastcircuit", tab.Layouts[0].Description);
+
+            var blank = tracks.Single(track => track.Id == "mod_blank");
+            Assert.Null(blank.Layouts[0].Version);
+            Assert.Null(blank.Layouts[0].Description);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("Cup Circuit", cup.Name);
+            Assert.Null(cup.Layouts[0].Version);
+            Assert.Null(cup.Layouts[0].Description);
+            Assert.Equal("2.5", cup.Layouts[1].Version);
+            Assert.Equal("Grand Prix notes", cup.Layouts[1].Description);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void A_car_description_does_not_set_the_version()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-car-description-").FullName;
+        try {
+            WriteCar(root, "mod_notes", """{ "name": "Cup", "description": "Cup notes v1.2" }""");
+            var car = Assert.Single(ContentLibrary.ScanCars(root));
+            Assert.Equal("Cup", car.Name);
+            Assert.Null(car.Version);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));

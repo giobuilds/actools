@@ -5,7 +5,12 @@ namespace AcManager.Core.Content;
 /// <summary>
 /// One layout folder under a track's <c>ui</c> directory.
 /// </summary>
-public readonly record struct TrackLayoutInfo(string Id, string? Name, double? Priority, string? Version = null);
+public readonly record struct TrackLayoutInfo(
+    string Id,
+    string? Name,
+    double? Priority,
+    string? Version = null,
+    string? Description = null);
 
 /// <summary>
 /// Picks the main track layout the way <c>TrackObject.GetLayouts</c> does when the
@@ -18,7 +23,8 @@ public static class TrackLayoutOrder
         bool rootPresent,
         string rootName,
         IReadOnlyList<TrackLayoutInfo> layouts,
-        string? rootVersion = null)
+        string? rootVersion = null,
+        string? rootDescription = null)
     {
         if (rootPresent) {
             var extras = layouts
@@ -26,7 +32,7 @@ public static class TrackLayoutOrder
                 .ThenBy(layout => layout.Id, StringComparer.Ordinal)
                 .Select(Display)
                 .ToList();
-            extras.Insert(0, new TrackLayout("", rootName, rootVersion));
+            extras.Insert(0, new TrackLayout("", rootName, rootVersion, rootDescription));
             return extras;
         }
 
@@ -81,7 +87,11 @@ public static class TrackLayoutOrder
     }
 
     private static TrackLayout Display(TrackLayoutInfo layout) =>
-        new(layout.Id, string.IsNullOrWhiteSpace(layout.Name) ? layout.Id : layout.Name, layout.Version);
+        new(
+            layout.Id,
+            string.IsNullOrWhiteSpace(layout.Name) ? layout.Id : layout.Name,
+            layout.Version,
+            layout.Description);
 
     private static string Preferred(string trackId, IReadOnlyList<TrackLayoutInfo> layouts)
     {

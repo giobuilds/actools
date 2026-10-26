@@ -50,7 +50,7 @@ public sealed record CarSummary(
     public CarSkin? DefaultSkin => Skins.Count == 0 ? null : Skins[0];
 }
 
-public sealed record TrackLayout(string Id, string Name, string? Version = null);
+public sealed record TrackLayout(string Id, string Name, string? Version = null, string? Description = null);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
@@ -138,21 +138,30 @@ public static class ContentLibrary
                         layoutId,
                         StringOf(json, "name")?.Trim(),
                         TextOf(json, "version"));
-                    found.Add(new TrackLayoutInfo(layoutId, layoutName, NumberOf(json, "priority"), layoutVersion));
+                    var (version, description) = DescriptionVersion(layoutVersion, json);
+                    found.Add(new TrackLayoutInfo(
+                        layoutId,
+                        layoutName,
+                        NumberOf(json, "priority"),
+                        version,
+                        description));
                 }
             }
 
             string rootName;
             string? rootVersion;
+            string? rootDescription;
             if (rootPresent) {
                 var rootElement = ReadUiObject(rootJson);
                 (rootName, rootVersion) = SplitVersion(id, StringOf(rootElement, "name")?.Trim(), TextOf(rootElement, "version"));
+                (rootVersion, rootDescription) = DescriptionVersion(rootVersion, rootElement);
             } else {
                 rootName = id;
                 rootVersion = null;
+                rootDescription = null;
             }
 
-            var layouts = TrackLayoutOrder.Arrange(id, rootPresent, rootName, found, rootVersion);
+            var layouts = TrackLayoutOrder.Arrange(id, rootPresent, rootName, found, rootVersion, rootDescription);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
@@ -246,6 +255,21 @@ public static class ContentLibrary
 
         var parsed = CarVersion.FromName(trimmedName, out var stripped);
         return parsed == null ? (trimmedName, null) : (stripped, parsed);
+    }
+
+    /// <summary>
+    /// <c>TrackObjectBase.LoadData</c> reads a trailing version from the description
+    /// when the JSON and the name left the version empty.
+    /// </summary>
+    private static (string? Version, string? Description) DescriptionVersion(string? version, JsonElement? json)
+    {
+        var description = ContentDescription.Decode(TextOf(json, "description"));
+        if (version != null || description == null) {
+            return (version, description);
+        }
+
+        var parsed = CarVersion.FromName(description, out var shortened);
+        return parsed == null ? (null, description) : (parsed, shortened);
     }
 
     private static IReadOnlyList<string> TagsOf(JsonElement? element)
