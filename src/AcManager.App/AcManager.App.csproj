@@ -3,10 +3,14 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>AcManager.App</RootNamespace>
     <AssemblyName>ContentManager</AssemblyName>
-    <Version>1.4.0</Version>
+    <Version>1.5.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <!-- The AppImage publish avoids a host libicu. Normal builds keep globalization. -->
+  <PropertyGroup Condition="'$(AppImageBuild)' == 'true'">
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../AcManager.Core/AcManager.Core.csproj" />
@@ -20,5 +24,35 @@
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+  <!--
+    The helper is a Windows exe. Drive copies it into the Proton prefix when it sits beside Content Manager.
+    PublishAcBridge=false skips the copy, which keeps a design-time build from producing it.
+  -->
+  <PropertyGroup>
+    <AcBridgeProject>$(MSBuildThisFileDirectory)../AcBridge/AcBridge.csproj</AcBridgeProject>
+    <AcBridgePublishDir>$(MSBuildThisFileDirectory)obj/acbridge-publish/</AcBridgePublishDir>
+  </PropertyGroup>
+  <Target Name="PublishAcBridge" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true' and '$(PublishAcBridge)' != 'false'">
+    <MSBuild
+      Projects="$(AcBridgeProject)"
+      Targets="Publish"
+      Properties="Configuration=Release;RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;IncludeNativeLibrariesForSelfExtract=true;DebugType=none;DebugSymbols=false;PublishDir=$(AcBridgePublishDir)" />
+    <Copy
+      SourceFiles="$(AcBridgePublishDir)AcBridge.exe"
+      DestinationFolder="$(TargetDir)"
+      SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopyAcBridgeToPublish" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true' and '$(PublishAcBridge)' != 'false' and '$(PublishDir)' != ''">
+    <Copy
+      SourceFiles="$(AcBridgePublishDir)AcBridge.exe"
+      DestinationFolder="$(PublishDir)"
+      SkipUnchangedFiles="true"
+      Condition="Exists('$(AcBridgePublishDir)AcBridge.exe')" />
+  </Target>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\LICENSE.txt" Link="Licenses\LICENSE.txt" />
+    <EmbeddedResource Include="..\..\NOTICE.txt" Link="Licenses\NOTICE.txt" />
   </ItemGroup>
 </Project>

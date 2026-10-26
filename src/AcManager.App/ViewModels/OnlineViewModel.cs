@@ -330,15 +330,9 @@ public partial class OnlineViewModel : ObservableObject
             var steamNote = SteamIdText.IsSeventeenDigits(steamId)
                 ? ""
                 : " No Steam ID was found in the local Steam login, so the server may reject the session.";
+            Status = LaunchFeedback.AfterWrite(_launcher, launch, path, "Starting the online session.") + steamNote;
             if (launch == GameLaunchStatus.SessionStarted) {
-                Status = "Wrote " + path + ". Starting the online session." + steamNote;
                 WatchForGame();
-            } else if (launch == GameLaunchStatus.GameNotFound) {
-                Status = "Wrote " + path + ". acs.exe is missing from the game folder, so the session was not started." + steamNote;
-            } else if (launch == GameLaunchStatus.LaunchFailed) {
-                Status = "Wrote " + path + ". Proton did not start." + steamNote;
-            } else {
-                Status = "Wrote " + path + ". Could not find Proton for this prefix, so the session was not started." + steamNote;
             }
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) {
             Status = ex.Message;
@@ -773,6 +767,15 @@ public partial class OnlineViewModel : ObservableObject
         return false;
     }
 
+    [RelayCommand]
+    private void OpenLaunchLog()
+    {
+        var message = LaunchFeedback.TryOpen(_launcher);
+        if (message != null) {
+            Status = message;
+        }
+    }
+
     private void WatchForGame()
     {
         _watch?.Cancel();
@@ -795,6 +798,10 @@ public partial class OnlineViewModel : ObservableObject
                         Post(token, "Assetto Corsa exited.");
                         return;
                     }
+                }
+
+                if (!sawGame) {
+                    Post(token, LaunchFeedback.GaveUp(_launcher));
                 }
             } catch (OperationCanceledException) {
                 // A newer join replaced this watch.

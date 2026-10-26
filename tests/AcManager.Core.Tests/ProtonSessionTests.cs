@@ -119,15 +119,23 @@ public class ProtonSessionTests
             File.WriteAllText(proton, Script(record));
             File.SetUnixFileMode(proton, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             var acs = Path.Combine(game, "acs.exe");
+            File.WriteAllText(Path.Combine(steam, "steam.sh"), "#!/bin/sh\nexit 0\n");
+            var state = Path.Combine(root, "state");
+            var launcher = new SteamGameLauncher([steam], state, () => true);
 
-            var status = new SteamGameLauncher([steam]).LaunchSession(Layout(game, compat));
+            var status = launcher.LaunchSession(Layout(game, compat));
 
             Assert.Equal(GameLaunchStatus.SessionStarted, status);
+            var log = Path.Combine(state, "launch.log");
+            Assert.Equal(log, launcher.LaunchLogPath);
+            Assert.Contains("Proton output is in " + log, launcher.LaunchDetail, StringComparison.Ordinal);
+            Assert.Matches(@"---- \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}Z ----", File.ReadAllText(log));
             var argsPath = Path.Combine(record, "args");
             WaitFor(argsPath);
             Assert.Equal(["waitforexitandrun", acs], File.ReadAllLines(argsPath));
             Assert.DoesNotContain("applaunch", File.ReadAllText(argsPath), StringComparison.Ordinal);
             Assert.DoesNotContain("AssettoCorsa.exe", File.ReadAllText(argsPath), StringComparison.Ordinal);
+            Assert.Equal(log, File.ReadAllText(Path.Combine(record, "logenv")).Trim());
             Assert.Equal(compat, File.ReadAllText(Path.Combine(record, "compat")).Trim());
             Assert.Equal(steam, File.ReadAllText(Path.Combine(record, "client")).Trim());
             Assert.Equal(game, File.ReadAllText(Path.Combine(record, "install")).Trim());
@@ -135,7 +143,45 @@ public class ProtonSessionTests
             Assert.EndsWith(
                 Path.Combine("steamapps", "common", "assettocorsa"),
                 File.ReadAllText(Path.Combine(record, "cwd")).Trim());
-            Assert.NotEqual(OwnSessionId(), File.ReadAllText(Path.Combine(record, "sid")).Trim());
+            var sidPath = Path.Combine(record, "sid");
+            WaitFor(sidPath);
+            Assert.NotEqual(OwnSessionId(), File.ReadAllText(sidPath).Trim());
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    [SupportedOSPlatform("linux")]
+    public void Launch_copies_acbridge_into_the_prefix_and_starts_it_before_the_race()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-bridge-run-").FullName;
+        try {
+            var steam = ClientRoot(root);
+            var game = WriteGame(steam);
+            var compat = WriteCompat(steam, "GE-Proton10-32\n");
+            var record = Path.Combine(root, "record");
+            Directory.CreateDirectory(record);
+            var proton = Path.Combine(steam, "compatibilitytools.d", "GE-Proton10-32", "proton");
+            Directory.CreateDirectory(Path.GetDirectoryName(proton)!);
+            File.WriteAllText(proton, CallScript(record));
+            File.SetUnixFileMode(proton, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            File.WriteAllText(Path.Combine(steam, "steam.sh"), "#!/bin/sh\nexit 0\n");
+            var bridge = Path.Combine(root, "AcBridge.exe");
+            File.WriteAllBytes(bridge, [1, 2, 3, 4]);
+            var state = Path.Combine(root, "state");
+            var launcher = new SteamGameLauncher([steam], state, () => true, bridgeExecutable: bridge);
+
+            var status = launcher.LaunchSession(Layout(game, compat));
+
+            Assert.Equal(GameLaunchStatus.SessionStarted, status);
+            var staged = AcBridgeFiles.PrefixExecutable(compat);
+            Assert.Equal(new byte[] { 1, 2, 3, 4 }, File.ReadAllBytes(staged));
+            var calls = WaitForCalls(record, 2);
+            var acs = Path.Combine(game, "acs.exe");
+            Assert.Contains(calls, lines => lines.SequenceEqual(["waitforexitandrun", staged, "--port", "27150"]));
+            Assert.Contains(calls, lines => lines.SequenceEqual(["waitforexitandrun", acs]));
+            Assert.All(Directory.GetFiles(record, "compat.*"), path => Assert.Equal(compat, File.ReadAllText(path).Trim()));
         } finally {
             Directory.Delete(root, true);
         }
@@ -147,13 +193,18 @@ public class ProtonSessionTests
         var root = Directory.CreateTempSubdirectory("actools-proton-miss-").FullName;
         try {
             var steam = ClientRoot(root);
-            var missingGame = new SteamGameLauncher([steam]).LaunchSession(new AcInstallLayout(root, null, null, "test"));
+            var state = Path.Combine(root, "state");
+            var launcher = new SteamGameLauncher([steam], state);
+            var missingGame = launcher.LaunchSession(new AcInstallLayout(root, null, null, "test"));
             Assert.Equal(GameLaunchStatus.GameNotFound, missingGame);
+            Assert.Contains("acs.exe is missing", launcher.LaunchDetail, StringComparison.Ordinal);
 
             var game = WriteGame(steam);
             var compat = WriteCompat(steam, "not-a-real-proton\n");
-            var missingProton = new SteamGameLauncher([steam]).LaunchSession(Layout(game, compat));
+            var missingProton = launcher.LaunchSession(Layout(game, compat));
             Assert.Equal(GameLaunchStatus.ProtonNotFound, missingProton);
+            Assert.Contains("Proton build not found", launcher.LaunchDetail, StringComparison.Ordinal);
+            Assert.False(File.Exists(Path.Combine(state, "launch.log")));
         } finally {
             Directory.Delete(root, true);
         }
@@ -196,8 +247,90 @@ public class ProtonSessionTests
     private static AcInstallLayout Layout(string game, string compat) =>
         new(game, null, Path.Combine(compat, "pfx"), "Steam");
 
+    [Fact]
+    public void Launch_explains_a_missing_prefix_and_a_missing_steam_client()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-proton-gap-").FullName;
+        try {
+            var state = Path.Combine(root, "state");
+            var launcher = new SteamGameLauncher([], state);
+            var game = Path.Combine(root, "assettocorsa");
+            Directory.CreateDirectory(game);
+            File.WriteAllText(Path.Combine(game, "acs.exe"), "");
+            var noPrefix = launcher.LaunchSession(new AcInstallLayout(game, null, null, "test"));
+            Assert.Equal(GameLaunchStatus.ProtonNotFound, noPrefix);
+            Assert.Contains("no Proton prefix", launcher.LaunchDetail, StringComparison.Ordinal);
+
+            var steam = Path.Combine(root, "Steam");
+            Directory.CreateDirectory(steam);
+            var installed = WriteGame(steam);
+            var compat = WriteCompat(steam, "GE-Proton10-32\n");
+            var outside = Path.Combine(root, "CustomProton");
+            WriteProton(outside);
+            File.WriteAllText(Path.Combine(compat, "config_info"), "GE-Proton10-32\n" + outside + "\n");
+            var clientLauncher = new SteamGameLauncher([steam], state);
+            var noClient = clientLauncher.LaunchSession(Layout(installed, compat));
+            Assert.Equal(GameLaunchStatus.ProtonNotFound, noClient);
+            Assert.Contains("Steam client that owns this prefix", clientLauncher.LaunchDetail, StringComparison.Ordinal);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    [SupportedOSPlatform("linux")]
+    public void Launch_refuses_when_the_steam_client_is_not_running()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-proton-steam-").FullName;
+        try {
+            var steam = ClientRoot(root);
+            var game = WriteGame(steam);
+            var compat = WriteCompat(steam, "GE-Proton10-32\n");
+            var record = Path.Combine(root, "record");
+            Directory.CreateDirectory(record);
+            var proton = Path.Combine(steam, "compatibilitytools.d", "GE-Proton10-32", "proton");
+            Directory.CreateDirectory(Path.GetDirectoryName(proton)!);
+            File.WriteAllText(proton, Script(record));
+            File.SetUnixFileMode(proton, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            File.WriteAllText(Path.Combine(steam, "ubuntu12_32", "steam"), "");
+            var state = Path.Combine(root, "state");
+            var launcher = new SteamGameLauncher([steam], state, () => false);
+
+            var status = launcher.LaunchSession(Layout(game, compat));
+
+            Assert.Equal(GameLaunchStatus.SteamNotRunning, status);
+            Assert.Equal("Steam is not running. Start Steam, then press Drive again.", launcher.LaunchDetail);
+            Thread.Sleep(250);
+            Assert.False(File.Exists(Path.Combine(record, "args")));
+            Assert.False(File.Exists(Path.Combine(state, "launch.log")));
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    private static string CallScript(string record) =>
+        "#!/bin/sh\n"
+        + "printf '%s\\n' \"$@\" > '" + record + "/call.'$$\n"
+        + "printf '%s\\n' \"$STEAM_COMPAT_DATA_PATH\" > '" + record + "/compat.'$$\n";
+
+    private static string[][] WaitForCalls(string record, int count)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(3);
+        while (DateTime.UtcNow < deadline) {
+            var files = Directory.GetFiles(record, "call.*");
+            if (files.Length >= count) {
+                return files.Select(File.ReadAllLines).ToArray();
+            }
+
+            Thread.Sleep(20);
+        }
+
+        return Directory.GetFiles(record, "call.*").Select(File.ReadAllLines).ToArray();
+    }
+
     private static string Script(string record) =>
         "#!/bin/sh\n"
+        + "printf '%s\\n' \"$ACTOOLS_LAUNCH_LOG\" > '" + record + "/logenv'\n"
         + "printf '%s\\n' \"$PWD\" > '" + record + "/cwd'\n"
         + "printf '%s\\n' \"$STEAM_COMPAT_DATA_PATH\" > '" + record + "/compat'\n"
         + "printf '%s\\n' \"$STEAM_COMPAT_CLIENT_INSTALL_PATH\" > '" + record + "/client'\n"

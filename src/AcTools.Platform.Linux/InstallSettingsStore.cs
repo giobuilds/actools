@@ -23,6 +23,16 @@ public sealed class XdgAppPaths
 
         return Path.Combine(xdg, "actools");
     }
+
+    public static string DefaultStateDirectory()
+    {
+        var xdg = Environment.GetEnvironmentVariable("XDG_STATE_HOME");
+        if (string.IsNullOrWhiteSpace(xdg)) {
+            xdg = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "state");
+        }
+
+        return Path.Combine(xdg, "actools");
+    }
 }
 
 public sealed class InstallSettingsStore : IInstallSettingsStore

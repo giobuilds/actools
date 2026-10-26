@@ -40,6 +40,9 @@ public enum GameLaunchStatus
     /// <summary>The prefix does not point at a Proton build we can run.</summary>
     ProtonNotFound,
 
+    /// <summary>Steam's client files are installed and the client process is not running.</summary>
+    SteamNotRunning,
+
     /// <summary>Proton was found, but the process did not start.</summary>
     LaunchFailed,
 }
@@ -52,4 +55,10 @@ public interface IGameLauncher
     GameLaunchStatus LaunchSession(AcInstallLayout layout);
 
     bool IsGameRunning();
+
+    /// <summary>One sentence about the last launch. Empty when the launcher has nothing to add.</summary>
+    string LaunchDetail => "";
+
+    /// <summary>Path of the Proton launch log. Empty when this launcher does not write one.</summary>
+    string LaunchLogPath => "";
 }

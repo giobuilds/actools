@@ -83,6 +83,9 @@ AcManager/Assets/Icons/Source/*-16.png
 AcManager/Assets/Icons/Source/*-32.png
 AcManager/Assets/Icons/Source/*-256.png
 
+# Local AppImage staging
+artifacts/
+
 # Helper scripts
 IgnoreVersionFiles.bat
 *tmp.csproj

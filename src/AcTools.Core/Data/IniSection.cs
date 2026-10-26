@@ -32,6 +32,9 @@ public sealed class IniSection
 
     public void Set(string key, double value) => Set(key, value.ToString(CultureInfo.InvariantCulture));
 
+    public void Set(string key, double value, string format) =>
+        Set(key, value.ToString(format, CultureInfo.InvariantCulture));
+
     public void Set(string key, bool value) => Set(key, value ? "1" : "0");
 
     public void SetId(string key, string? value)

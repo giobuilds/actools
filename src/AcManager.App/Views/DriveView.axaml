@@ -7,7 +7,7 @@
              x:DataType="vm:DriveViewModel">
   <Grid ColumnDefinitions="320,*" ColumnSpacing="20">
     <DockPanel Grid.Column="0">
-      <TextBox DockPanel.Dock="Top" Margin="0,0,0,8" PlaceholderText="Search cars" Text="{Binding Filter}" />
+      <TextBox DockPanel.Dock="Top" Margin="0,0,0,8" PlaceholderText="Search cars, brand:, class:" Text="{Binding Filter}" />
       <ListBox ItemsSource="{Binding FilteredCars}" SelectedItem="{Binding SelectedCar}">
         <ListBox.ItemsPanel>
           <ItemsPanelTemplate>
@@ -29,6 +29,8 @@
       <StackPanel Spacing="10" MaxWidth="520" HorizontalAlignment="Left">
         <TextBlock Text="{Binding SelectedMode.Name}" FontSize="28" FontWeight="SemiBold" />
         <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding LiveNote}" TextWrapping="Wrap" Opacity="0.8" />
+        <Button Content="Open launch log" Command="{Binding OpenLaunchLogCommand}" HorizontalAlignment="Left" />
 
         <TextBlock Text="Mode" />
         <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}" HorizontalAlignment="Stretch">
@@ -85,11 +87,20 @@
         <TextBlock Text="Laps" IsVisible="{Binding ShowLaps}" />
         <NumericUpDown Minimum="1" Maximum="999" Increment="1" FormatString="0" Value="{Binding RaceLaps}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowLaps}" />
 
+        <TextBlock Text="Practice minutes" IsVisible="{Binding ShowWeekend}" />
+        <NumericUpDown Minimum="0" Maximum="999" Increment="5" FormatString="0" Value="{Binding PracticeMinutes}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowWeekend}" />
+
+        <TextBlock Text="Qualifying minutes" IsVisible="{Binding ShowWeekend}" />
+        <NumericUpDown Minimum="0" Maximum="999" Increment="5" FormatString="0" Value="{Binding QualificationMinutes}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowWeekend}" />
+
+        <TextBlock Text="Matches" IsVisible="{Binding ShowMatches}" />
+        <NumericUpDown Minimum="1" Maximum="100" Increment="1" FormatString="0" Value="{Binding DragMatches}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowMatches}" />
+
         <TextBlock Text="Opponents" IsVisible="{Binding ShowOpponents}" />
         <NumericUpDown Minimum="0" Maximum="40" Increment="1" FormatString="0" Value="{Binding Opponents}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowOpponents}" />
 
-        <TextBlock Text="AI level" IsVisible="{Binding ShowOpponents}" />
-        <NumericUpDown Minimum="0" Maximum="100" Increment="5" FormatString="0" Value="{Binding AiLevel}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowOpponents}" />
+        <TextBlock Text="AI level" IsVisible="{Binding ShowAi}" />
+        <NumericUpDown Minimum="0" Maximum="100" Increment="5" FormatString="0" Value="{Binding AiLevel}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowAi}" />
 
         <TextBlock Text="Spawn" IsVisible="{Binding ShowSpawn}" />
         <ComboBox ItemsSource="{Binding SpawnSets}" SelectedItem="{Binding SpawnSet}" Width="140" HorizontalAlignment="Left" IsVisible="{Binding ShowSpawn}" />

@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using AcManager.App.ViewModels;
+using AcManager.Core.Content;
 using AcTools.Platform;
 using AcTools.Platform.Linux;
 using Xunit;
@@ -172,6 +173,35 @@ public class ContentPageTests
             Assert.Equal("Assetto Corsa exited.", window.Drive.Status);
             Assert.Equal("spa", window.Drive.SelectedTrack?.Id);
             Assert.Equal("chq_sepang", window.Content.Tracks[0].Id);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Check_and_apply_fix_a_loose_surface_file()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-content-repair-ui-").FullName;
+        try {
+            var game = Path.Combine(root, "game");
+            Directory.CreateDirectory(Path.Combine(game, "content", "cars"));
+            var surfaces = Path.Combine(game, "content", "tracks", "cup", "data", "surfaces.ini");
+            Directory.CreateDirectory(Path.GetDirectoryName(surfaces)!);
+            File.WriteAllText(Path.Combine(game, "acs.exe"), "");
+            File.WriteAllText(surfaces, "[SURFACE_0]\r\nWAV_PITCH=extended-0\r\n");
+
+            var content = new ContentViewModel();
+            content.UseLayout(new AcInstallLayout(game, null, null, "test"));
+            await content.CheckRepairsCommand.ExecuteAsync(null);
+
+            var repair = Assert.Single(content.Repairs);
+            Assert.Equal(ContentRepairs.WavPitch, repair.Kind);
+            Assert.Contains("1 file repairs found", content.Status, StringComparison.Ordinal);
+            await content.ApplyRepairCommand.ExecuteAsync(null);
+
+            Assert.Empty(content.Repairs);
+            Assert.Contains("WAV_PITCH=0", File.ReadAllText(surfaces), StringComparison.Ordinal);
+            Assert.Contains("Updated " + repair.RelativePath, content.Status, StringComparison.Ordinal);
         } finally {
             Directory.Delete(root, true);
         }

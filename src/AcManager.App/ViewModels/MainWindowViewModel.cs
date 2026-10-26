@@ -1,3 +1,4 @@
+using AcManager.Core.Bridge;
 using AcManager.Core.Content;
 using AcManager.Core.Online;
 using AcTools.Platform;
@@ -16,10 +17,14 @@ public partial class MainWindowViewModel : ObservableObject
         bool openDrive = false,
         IOnlineDirectory? servers = null,
         ISteamIdLookup? steamIds = null,
-        IServerContentInstaller? contentInstaller = null)
+        IServerContentInstaller? contentInstaller = null,
+        ISessionBridge? live = null,
+        IReleaseLookup? releases = null)
     {
         var ids = steamIds ?? new SteamLoginUsersLookup();
-        Drive = new DriveViewModel(launcher);
+        Drive = new DriveViewModel(launcher, live);
+        Results = new ResultsViewModel();
+        About = new AboutViewModel(releases);
         Video = new VideoViewModel();
         Content = new ContentViewModel();
         Settings = new SettingsViewModel();
@@ -32,6 +37,7 @@ public partial class MainWindowViewModel : ObservableObject
         };
         Install = new InstallViewModel(store, locator, layout => {
             Drive.UseLayout(layout);
+            Results.UseLayout(layout);
             Video.UseLayout(layout);
             Content.UseLayout(layout);
             Settings.UseLayout(layout);
@@ -39,12 +45,18 @@ public partial class MainWindowViewModel : ObservableObject
             Online.UseLayout(layout);
         });
         Install.Publish();
+        if (openDrive) {
+            Drive.RefreshLive();
+        }
+
         CurrentPage = openDrive ? Drive : Install;
     }
 
     public InstallViewModel Install { get; }
 
     public DriveViewModel Drive { get; }
+
+    public ResultsViewModel Results { get; }
 
     public VideoViewModel Video { get; }
 
@@ -56,6 +68,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     public OnlineViewModel Online { get; }
 
+    public AboutViewModel About { get; }
+
     public string Version => AppVersion.Current;
 
     [ObservableProperty]
@@ -64,6 +78,8 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsInstallPage => ReferenceEquals(CurrentPage, Install);
 
     public bool IsDrivePage => ReferenceEquals(CurrentPage, Drive);
+
+    public bool IsResultsPage => ReferenceEquals(CurrentPage, Results);
 
     public bool IsContentPage => ReferenceEquals(CurrentPage, Content);
 
@@ -75,11 +91,24 @@ public partial class MainWindowViewModel : ObservableObject
 
     public bool IsOnlinePage => ReferenceEquals(CurrentPage, Online);
 
+    public bool IsAboutPage => ReferenceEquals(CurrentPage, About);
+
     [RelayCommand]
     private void ShowInstall() => CurrentPage = Install;
 
     [RelayCommand]
-    private void ShowDrive() => CurrentPage = Drive;
+    private void ShowDrive()
+    {
+        Drive.RefreshLive();
+        CurrentPage = Drive;
+    }
+
+    [RelayCommand]
+    private void ShowResults()
+    {
+        Results.Reload();
+        CurrentPage = Results;
+    }
 
     [RelayCommand]
     private void ShowContent()
@@ -116,6 +145,13 @@ public partial class MainWindowViewModel : ObservableObject
         CurrentPage = Online;
     }
 
+    [RelayCommand]
+    private async Task ShowAbout()
+    {
+        CurrentPage = About;
+        await About.CheckAsync();
+    }
+
     public Task OpenInviteAsync(OnlineInvite invite)
     {
         CurrentPage = Online;
@@ -126,10 +162,12 @@ public partial class MainWindowViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsInstallPage));
         OnPropertyChanged(nameof(IsDrivePage));
+        OnPropertyChanged(nameof(IsResultsPage));
         OnPropertyChanged(nameof(IsContentPage));
         OnPropertyChanged(nameof(IsVideoPage));
         OnPropertyChanged(nameof(IsSettingsPage));
         OnPropertyChanged(nameof(IsCspPage));
         OnPropertyChanged(nameof(IsOnlinePage));
+        OnPropertyChanged(nameof(IsAboutPage));
     }
 }

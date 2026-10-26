@@ -39,9 +39,19 @@ public partial class ContentViewModel : ObservableObject
     [ObservableProperty]
     private RemovablePiece? _selectedTrack;
 
+    [ObservableProperty]
+    private IReadOnlyList<ContentRepair> _repairs = [];
+
+    [ObservableProperty]
+    private ContentRepair? _selectedRepair;
+
     public bool ShowNoCars => Cars.Count == 0;
 
     public bool ShowNoTracks => Tracks.Count == 0;
+
+    public bool ShowRepairList => Repairs.Count > 0;
+
+    public string RepairNote { get; } = "Check looks at loose ini files. Packed data.acd archives stay unchanged.";
 
     public Action? Installed { get; set; }
 
@@ -54,6 +64,8 @@ public partial class ContentViewModel : ObservableObject
     public void Reload()
     {
         ClearPending();
+        Repairs = [];
+        SelectedRepair = null;
         if (!_layout.HasGameRoot || string.IsNullOrWhiteSpace(_layout.GameRoot)) {
             Cars = [];
             Tracks = [];
@@ -82,6 +94,10 @@ public partial class ContentViewModel : ObservableObject
     private bool CanRemoveCar() => _busy == 0 && SelectedCar != null;
 
     private bool CanRemoveTrack() => _busy == 0 && SelectedTrack != null;
+
+    private bool CanCheckRepairs() => _busy == 0;
+
+    private bool CanApplyRepair() => _busy == 0 && SelectedRepair != null;
 
     [RelayCommand(CanExecute = nameof(CanInstall))]
     private async Task Install()
@@ -159,6 +175,67 @@ public partial class ContentViewModel : ObservableObject
         await Remove("track", track.Id);
     }
 
+    [RelayCommand(CanExecute = nameof(CanCheckRepairs))]
+    private async Task CheckRepairs()
+    {
+        if (_busy != 0) {
+            return;
+        }
+
+        if (!_layout.HasGameRoot || string.IsNullOrWhiteSpace(_layout.GameRoot)) {
+            Status = "Set the game folder on the Install page before checking for repairs.";
+            return;
+        }
+
+        var gameRoot = _layout.GameRoot;
+        BeginBusy();
+        Status = "Checking loose ini files…";
+        try {
+            var found = await Task.Run(() => ContentRepairs.Scan(gameRoot));
+            ShowRepairs(found);
+            Status = found.Count == 0
+                ? "No file repairs found. Packed data.acd archives were left unchanged."
+                : found.Count + " file repairs found.";
+        } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
+            Status = ex.Message;
+        } finally {
+            EndBusy();
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanApplyRepair))]
+    private async Task ApplyRepair()
+    {
+        var repair = SelectedRepair;
+        if (repair == null || _busy != 0 || string.IsNullOrWhiteSpace(_layout.GameRoot)) {
+            return;
+        }
+
+        var gameRoot = _layout.GameRoot;
+        BeginBusy();
+        Status = "Applying " + repair.Title + "…";
+        try {
+            await Task.Run(() => ContentRepairs.Apply(gameRoot, repair));
+            var found = await Task.Run(() => ContentRepairs.Scan(gameRoot));
+            ShowRepairs(found);
+            Status = "Updated " + repair.RelativePath + ".";
+        } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) {
+            Status = ex.Message;
+        } finally {
+            EndBusy();
+        }
+    }
+
+    private void ShowRepairs(IReadOnlyList<ContentRepair> found)
+    {
+        var kind = SelectedRepair?.Kind;
+        var path = SelectedRepair?.RelativePath;
+        Repairs = found;
+        SelectedRepair = path == null
+            ? found.FirstOrDefault()
+            : found.FirstOrDefault(item => item.Kind == kind && item.RelativePath == path) ?? found.FirstOrDefault();
+    }
+
     private async Task Remove(string kind, string id)
     {
         if (_busy != 0 || string.IsNullOrWhiteSpace(_layout.GameRoot)) {
@@ -186,6 +263,8 @@ public partial class ContentViewModel : ObservableObject
         InstallCommand.NotifyCanExecuteChanged();
         RemoveCarCommand.NotifyCanExecuteChanged();
         RemoveTrackCommand.NotifyCanExecuteChanged();
+        CheckRepairsCommand.NotifyCanExecuteChanged();
+        ApplyRepairCommand.NotifyCanExecuteChanged();
     }
 
     private void EndBusy()
@@ -194,6 +273,8 @@ public partial class ContentViewModel : ObservableObject
         InstallCommand.NotifyCanExecuteChanged();
         RemoveCarCommand.NotifyCanExecuteChanged();
         RemoveTrackCommand.NotifyCanExecuteChanged();
+        CheckRepairsCommand.NotifyCanExecuteChanged();
+        ApplyRepairCommand.NotifyCanExecuteChanged();
     }
 
     private void SetPending(string kind, string id)
@@ -229,6 +310,10 @@ public partial class ContentViewModel : ObservableObject
 
         RemoveTrackCommand.NotifyCanExecuteChanged();
     }
+
+    partial void OnSelectedRepairChanged(ContentRepair? value) => ApplyRepairCommand.NotifyCanExecuteChanged();
+
+    partial void OnRepairsChanged(IReadOnlyList<ContentRepair> value) => OnPropertyChanged(nameof(ShowRepairList));
 
     partial void OnCarsChanged(IReadOnlyList<RemovablePiece> value) => OnPropertyChanged(nameof(ShowNoCars));
 

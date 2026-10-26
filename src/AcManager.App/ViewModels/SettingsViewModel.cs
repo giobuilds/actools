@@ -1,5 +1,6 @@
 using AcManager.Core.Settings;
 using AcTools.Platform;
+using AcTools.Platform.Linux;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -34,8 +35,14 @@ public partial class SettingsViewModel : ObservableObject
 
     public IReadOnlyList<AssistLevel> AssistLevels => Levels;
 
+    private readonly IInputDevices _devices;
     private string? _documents;
     private string? _gameRoot;
+
+    public SettingsViewModel(IInputDevices? devices = null)
+    {
+        _devices = devices ?? new SdlInputDevices();
+    }
 
     [ObservableProperty]
     private string _inputMethod = "Not set";
@@ -45,6 +52,9 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _hasControllers;
+
+    [ObservableProperty]
+    private IReadOnlyList<string> _connected = [];
 
     [ObservableProperty]
     private decimal _forceFeedback = 100;
@@ -146,6 +156,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(_documents)) {
             CanSave = false;
+            RefreshConnected([]);
             Status = "Set the Documents directory on the Install page. These files live in that folder.";
             return;
         }
@@ -155,6 +166,7 @@ public partial class SettingsViewModel : ObservableObject
             InputMethod = controls.InputMethod.Length == 0 ? "Not set" : controls.InputMethod;
             Controllers = controls.Controllers.Select(item => item.Label).ToArray();
             HasControllers = Controllers.Count > 0;
+            RefreshConnected(controls.Controllers.Select(item => item.Name).ToArray());
             ForceFeedback = controls.ForceFeedback;
             SteerLock = controls.SteerLock;
 
@@ -192,8 +204,14 @@ public partial class SettingsViewModel : ObservableObject
             Status = "Using " + Path.Combine(_documents, "cfg");
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
             CanSave = false;
+            RefreshConnected([]);
             Status = ex.Message;
         }
+    }
+
+    private void RefreshConnected(IReadOnlyList<string> savedNames)
+    {
+        Connected = ConnectedControllers.Lines(savedNames, _devices.List());
     }
 
     [RelayCommand]

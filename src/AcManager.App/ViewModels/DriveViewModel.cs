@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
+using AcManager.Core.Bridge;
 using AcManager.Core.Content;
 using AcManager.Core.Sessions;
 using AcTools.Core.Sessions;
@@ -6,12 +8,14 @@ using AcTools.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using StringBasedFilter;
 
 namespace AcManager.App.ViewModels;
 
 public partial class DriveViewModel : ObservableObject
 {
     private readonly IGameLauncher _launcher;
+    private readonly ISessionBridge? _live;
     private AcInstallLayout _layout = new(null, null, null, "");
     private IReadOnlyList<CarSummary> _cars = [];
     private CancellationTokenSource? _watch;
@@ -76,10 +80,31 @@ public partial class DriveViewModel : ObservableObject
     private bool _showOpponents;
 
     [ObservableProperty]
+    private bool _showAi;
+
+    [ObservableProperty]
+    private bool _showMatches;
+
+    [ObservableProperty]
+    private bool _showWeekend;
+
+    [ObservableProperty]
+    private decimal _dragMatches = 10;
+
+    [ObservableProperty]
+    private decimal _practiceMinutes = 15;
+
+    [ObservableProperty]
+    private decimal _qualificationMinutes = 30;
+
+    [ObservableProperty]
     private string? _previewPath;
 
     [ObservableProperty]
     private string _status = "Choose a car and a track.";
+
+    [ObservableProperty]
+    private string _liveNote = SessionBridgeProtocol.OffNote;
 
     [ObservableProperty]
     private bool _libraryReady;
@@ -91,15 +116,25 @@ public partial class DriveViewModel : ObservableObject
         new(QuickDriveMode.Hotlap, "Hotlap"),
         new(QuickDriveMode.Race, "Race"),
         new(QuickDriveMode.TrackDay, "Track Day"),
+        new(QuickDriveMode.TimeAttack, "Time Attack"),
+        new(QuickDriveMode.Drift, "Drift"),
+        new(QuickDriveMode.Drag, "Drag"),
+        new(QuickDriveMode.Weekend, "Weekend"),
     ];
 
     [ObservableProperty]
     private DriveModeOption _selectedMode;
 
-    public DriveViewModel(IGameLauncher launcher)
+    public DriveViewModel(IGameLauncher launcher, ISessionBridge? live = null)
     {
         _launcher = launcher;
+        _live = live;
         _selectedMode = Modes[0];
+    }
+
+    public void RefreshLive()
+    {
+        LiveNote = _live == null ? SessionBridgeProtocol.OffNote : _live.ReadNote();
     }
 
     public void UseLayout(AcInstallLayout layout)
@@ -174,18 +209,33 @@ public partial class DriveViewModel : ObservableObject
 
     partial void OnSelectedModeChanged(DriveModeOption value)
     {
-        ShowMinutes = value.Mode == QuickDriveMode.Practice;
-        ShowSpawn = value.Mode == QuickDriveMode.Practice;
-        ShowLaps = value.Mode == QuickDriveMode.Race;
-        ShowOpponents = value.Mode is QuickDriveMode.Race or QuickDriveMode.TrackDay;
+        var mode = value.Mode;
+        ShowMinutes = mode is QuickDriveMode.Practice or QuickDriveMode.TimeAttack or QuickDriveMode.Drift;
+        ShowSpawn = mode is QuickDriveMode.Practice or QuickDriveMode.Drift;
+        ShowLaps = mode is QuickDriveMode.Race or QuickDriveMode.Weekend;
+        ShowOpponents = mode is QuickDriveMode.Race or QuickDriveMode.TrackDay or QuickDriveMode.Weekend;
+        ShowAi = ShowOpponents || mode == QuickDriveMode.Drag;
+        ShowMatches = mode == QuickDriveMode.Drag;
+        ShowWeekend = mode == QuickDriveMode.Weekend;
     }
 
     private void ApplyFilter()
     {
         var selectedId = SelectedCar?.Id;
         FilteredCars.Clear();
+        var query = Filter;
+        var active = !string.IsNullOrWhiteSpace(query);
+        IFilter<CarSummary>? parsed = null;
+        if (active) {
+            try {
+                parsed = StringBasedFilter.Filter.Create(CarSummaryTester.Instance, query);
+            } catch (Exception ex) when (ex is ArgumentException or RegexParseException) {
+                parsed = null;
+            }
+        }
+
         foreach (var car in _cars) {
-            if (Matches(car, Filter)) {
+            if (!active || (parsed != null && parsed.Test(car))) {
                 FilteredCars.Add(car);
             }
         }
@@ -193,16 +243,13 @@ public partial class DriveViewModel : ObservableObject
         SelectedCar = FilteredCars.FirstOrDefault(car => car.Id == selectedId) ?? FilteredCars.FirstOrDefault();
     }
 
-    private static bool Matches(CarSummary car, string filter)
+    [RelayCommand]
+    private void OpenLaunchLog()
     {
-        if (string.IsNullOrWhiteSpace(filter)) {
-            return true;
+        var message = LaunchFeedback.TryOpen(_launcher);
+        if (message != null) {
+            Status = message;
         }
-
-        return car.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
-            || car.Id.Contains(filter, StringComparison.OrdinalIgnoreCase)
-            || (car.Brand?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (car.ClassName?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false);
     }
 
     private bool CanDrive() =>
@@ -231,17 +278,18 @@ public partial class DriveViewModel : ObservableObject
                 RaceLaps = (int)RaceLaps,
                 Opponents = (int)Opponents,
                 AiLevel = (int)AiLevel,
+                DragMatches = (int)DragMatches,
+                PracticeMinutes = (int)PracticeMinutes,
+                QualificationMinutes = (int)QualificationMinutes,
             });
             var launch = _launcher.LaunchSession(_layout);
+            Status = LaunchFeedback.AfterWrite(
+                _launcher,
+                launch,
+                path,
+                "Starting the " + SessionLabel(SelectedMode.Mode) + " session.");
             if (launch == GameLaunchStatus.SessionStarted) {
-                Status = "Wrote " + path + ". Starting the " + SessionLabel(SelectedMode.Mode) + " session.";
                 WatchForGame();
-            } else if (launch == GameLaunchStatus.GameNotFound) {
-                Status = "Wrote " + path + ". acs.exe is missing from the game folder, so the session was not started.";
-            } else if (launch == GameLaunchStatus.LaunchFailed) {
-                Status = "Wrote " + path + ". Proton did not start.";
-            } else {
-                Status = "Wrote " + path + ". Could not find Proton for this prefix, so the session was not started.";
             }
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) {
             Status = ex.Message;
@@ -271,6 +319,10 @@ public partial class DriveViewModel : ObservableObject
                         return;
                     }
                 }
+
+                if (!sawGame) {
+                    Post(token, LaunchFeedback.GaveUp(_launcher));
+                }
             } catch (OperationCanceledException) {
                 // A newer Drive replaced this watch.
             }
@@ -294,6 +346,10 @@ public partial class DriveViewModel : ObservableObject
         QuickDriveMode.Hotlap => "hotlap",
         QuickDriveMode.Race => "race",
         QuickDriveMode.TrackDay => "track day",
+        QuickDriveMode.TimeAttack => "time attack",
+        QuickDriveMode.Drift => "drift",
+        QuickDriveMode.Drag => "drag",
+        QuickDriveMode.Weekend => "weekend",
         _ => "practice",
     };
 }

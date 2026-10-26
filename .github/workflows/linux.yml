@@ -12,5 +12,28 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+      - name: Install SDL2
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
       - name: Test
         run: dotnet test AcManager.Linux.slnx --configuration Release
+
+  appimage:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Install zsync
+        run: sudo apt-get update && sudo apt-get install -y zsync
+      - name: Build AppImage
+        run: packaging/build-appimage.sh
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/appimage/*.AppImage
+            artifacts/appimage/*.zsync
