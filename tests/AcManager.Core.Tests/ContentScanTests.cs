@@ -529,6 +529,45 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_track_width_keeps_the_json_text()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-width-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "width": "  12 m  " }""");
+            WriteTrack(root, "mod_tight", """{ "name": "Tight", "width": "12m" }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "width": "" }""");
+            WriteTrack(root, "mod_spaces", """{ "name": "Spaces", "width": "   " }""");
+            WriteTrack(root, "mod_number", """{ "name": "Number", "width": 12 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "width": "11 m" }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix", "width": "15 m" }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "width": "14 m" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "width": "10 m" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal("12 m", spa.SpecsWidth);
+            Assert.Equal("12 m", spa.Layouts[0].SpecsWidth);
+            Assert.Equal("12m", tracks.Single(track => track.Id == "mod_tight").SpecsWidth);
+            Assert.Null(tracks.Single(track => track.Id == "mod_blank").SpecsWidth);
+            Assert.Equal("", tracks.Single(track => track.Id == "mod_spaces").SpecsWidth);
+            Assert.Equal("12", tracks.Single(track => track.Id == "mod_number").SpecsWidth);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").SpecsWidth);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("11 m", cup.SpecsWidth);
+            Assert.Equal("15 m", cup.Layouts[1].SpecsWidth);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal("14 m", layouts.SpecsWidth);
+            Assert.Equal("10 m", layouts.Layouts[1].SpecsWidth);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));
