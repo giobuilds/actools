@@ -451,6 +451,45 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_track_length_keeps_the_json_text()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-length-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "length": "  5.793 km  " }""");
+            WriteTrack(root, "mod_tight", """{ "name": "Tight", "length": "5.793km" }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "length": "" }""");
+            WriteTrack(root, "mod_spaces", """{ "name": "Spaces", "length": "   " }""");
+            WriteTrack(root, "mod_number", """{ "name": "Number", "length": 5793 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "length": "5.793 km" }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix", "length": "7.004 km" }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "length": "5.891 km" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "length": "2.4 km" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal("5.793 km", spa.SpecsLength);
+            Assert.Equal("5.793 km", spa.Layouts[0].SpecsLength);
+            Assert.Equal("5.793km", tracks.Single(track => track.Id == "mod_tight").SpecsLength);
+            Assert.Null(tracks.Single(track => track.Id == "mod_blank").SpecsLength);
+            Assert.Equal("", tracks.Single(track => track.Id == "mod_spaces").SpecsLength);
+            Assert.Equal("5793", tracks.Single(track => track.Id == "mod_number").SpecsLength);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").SpecsLength);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("5.793 km", cup.SpecsLength);
+            Assert.Equal("7.004 km", cup.Layouts[1].SpecsLength);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal("5.891 km", layouts.SpecsLength);
+            Assert.Equal("2.4 km", layouts.Layouts[1].SpecsLength);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));

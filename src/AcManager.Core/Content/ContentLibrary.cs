@@ -57,7 +57,8 @@ public sealed record TrackLayout(
     string Name,
     string? Version = null,
     string? Description = null,
-    string? City = null);
+    string? City = null,
+    string? SpecsLength = null);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
@@ -65,6 +66,9 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
 
     /// <summary>City of the main layout. Content Manager stores city on each layout.</summary>
     public string? City => Layouts.Count == 0 ? null : Layouts[0].City;
+
+    /// <summary>Length text of the main layout. The kilometre conversion stays unread.</summary>
+    public string? SpecsLength => Layouts.Count == 0 ? null : Layouts[0].SpecsLength;
 }
 
 public sealed record WeatherSummary(string Id, string Name);
@@ -157,7 +161,8 @@ public static class ContentLibrary
                         NumberOf(json, "priority"),
                         version,
                         description,
-                        TextOf(json, "city")));
+                        TextOf(json, "city"),
+                        LengthOf(json)));
                 }
             }
 
@@ -165,16 +170,19 @@ public static class ContentLibrary
             string? rootVersion;
             string? rootDescription;
             string? rootCity;
+            string? rootLength;
             if (rootPresent) {
                 var rootElement = ReadUiObject(rootJson);
                 (rootName, rootVersion) = SplitVersion(id, StringOf(rootElement, "name")?.Trim(), TextOf(rootElement, "version"));
                 (rootVersion, rootDescription) = DescriptionVersion(rootVersion, rootElement);
                 rootCity = TextOf(rootElement, "city");
+                rootLength = LengthOf(rootElement);
             } else {
                 rootName = id;
                 rootVersion = null;
                 rootDescription = null;
                 rootCity = null;
+                rootLength = null;
             }
 
             var layouts = TrackLayoutOrder.Arrange(
@@ -184,7 +192,8 @@ public static class ContentLibrary
                 found,
                 rootVersion,
                 rootDescription,
-                rootCity);
+                rootCity,
+                rootLength);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
@@ -294,6 +303,12 @@ public static class ContentLibrary
         var parsed = CarVersion.FromName(description, out var shortened);
         return parsed == null ? (null, description) : (parsed, shortened);
     }
+
+    /// <summary>
+    /// <c>TrackObjectBase.SpecsLength</c> trims the JSON text. An all-space value becomes empty.
+    /// The kilometre conversion stays unread.
+    /// </summary>
+    private static string? LengthOf(JsonElement? element) => TextOf(element, "length")?.Trim();
 
     private static IReadOnlyList<string> TagsOf(JsonElement? element)
     {
