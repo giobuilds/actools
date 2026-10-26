@@ -30,7 +30,7 @@ public static class ProtonSession
             return null;
         }
 
-        var roots = steamRoots.Where(static root => !string.IsNullOrWhiteSpace(root)).ToList();
+        var roots = Roots(steamRoots);
         var script = FindProtonScript(compatData, roots);
         if (script == null) {
             return null;
@@ -49,6 +49,30 @@ public static class ProtonSession
             client,
             LibraryRoot(layout.GameRoot));
     }
+
+    /// <summary>
+    /// Why <see cref="Resolve"/> returned null. The sentence names the missing piece.
+    /// </summary>
+    public static string Explain(AcInstallLayout layout, IEnumerable<string> steamRoots)
+    {
+        if (string.IsNullOrWhiteSpace(layout.GameRoot) || FindGameExecutable(layout.GameRoot) == null) {
+            return "acs.exe is missing from the game folder, so the session was not started.";
+        }
+
+        var compatData = CompatDataDirectory(layout);
+        if (compatData == null) {
+            return "The game has no Proton prefix yet. Launch it once from Steam so Proton can create it.";
+        }
+
+        if (FindProtonScript(compatData, Roots(steamRoots)) == null) {
+            return "Proton build not found. Looked in the prefix version file, config_info, and Steam config.vdf.";
+        }
+
+        return "Could not find the Steam client that owns this prefix.";
+    }
+
+    private static List<string> Roots(IEnumerable<string> steamRoots) =>
+        steamRoots.Where(static root => !string.IsNullOrWhiteSpace(root)).ToList();
 
     public static string? FindGameExecutable(string gameRoot)
     {

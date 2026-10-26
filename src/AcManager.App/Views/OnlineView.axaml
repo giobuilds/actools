@@ -34,6 +34,7 @@
       <StackPanel Spacing="10" MaxWidth="520" HorizontalAlignment="Left">
         <TextBlock Text="Online" FontSize="28" FontWeight="SemiBold" />
         <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+        <Button Content="Open launch log" Command="{Binding OpenLaunchLogCommand}" HorizontalAlignment="Left" />
         <TextBlock Text="{Binding Details}" TextWrapping="Wrap" Opacity="0.8" />
 
         <TextBlock Text="Car" />

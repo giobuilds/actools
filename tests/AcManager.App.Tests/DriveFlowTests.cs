@@ -74,6 +74,29 @@ public class DriveFlowTests
         }
     }
 
+    [Fact]
+    public void Drive_shows_the_launcher_detail_when_steam_is_not_running()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-ui-steam-").FullName;
+        try {
+            var game = WriteGame(Path.Combine(root, "library"));
+            var documents = Path.Combine(root, "Documents", "Assetto Corsa");
+            Directory.CreateDirectory(documents);
+            WriteCar(game, "ks_mazda_mx5_cup", "Mazda MX-5 Cup", "Mazda");
+            WriteTrack(game, "ks_silverstone", "Silverstone");
+            var launcher = new DetailLauncher(
+                GameLaunchStatus.SteamNotRunning,
+                "Steam is not running. Start Steam, then press Drive again.");
+            var drive = new DriveViewModel(launcher);
+            drive.UseLayout(new AcInstallLayout(game, documents, null, "test"));
+            drive.DriveCommand.Execute(null);
+            Assert.Contains("Steam is not running. Start Steam, then press Drive again.", drive.Status, StringComparison.Ordinal);
+            Assert.DoesNotContain("Could not find Proton", drive.Status, StringComparison.Ordinal);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static string WriteGame(string library)
     {
         var game = Path.Combine(library, "steamapps", "common", "assettocorsa");
@@ -124,6 +147,23 @@ public class DriveFlowTests
             Seen = layout;
             return GameLaunchStatus.ProtonNotFound;
         }
+
+        public bool IsGameRunning() => false;
+    }
+
+    private sealed class DetailLauncher : IGameLauncher
+    {
+        public DetailLauncher(GameLaunchStatus status, string detail)
+        {
+            Status = status;
+            LaunchDetail = detail;
+        }
+
+        private GameLaunchStatus Status { get; }
+
+        public string LaunchDetail { get; }
+
+        public GameLaunchStatus LaunchSession(AcInstallLayout layout) => Status;
 
         public bool IsGameRunning() => false;
     }

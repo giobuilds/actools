@@ -231,6 +231,15 @@ public partial class DriveViewModel : ObservableObject
             || (car.ClassName?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false);
     }
 
+    [RelayCommand]
+    private void OpenLaunchLog()
+    {
+        var message = LaunchFeedback.TryOpen(_launcher);
+        if (message != null) {
+            Status = message;
+        }
+    }
+
     private bool CanDrive() =>
         LibraryReady
         && SelectedCar != null
@@ -262,15 +271,13 @@ public partial class DriveViewModel : ObservableObject
                 QualificationMinutes = (int)QualificationMinutes,
             });
             var launch = _launcher.LaunchSession(_layout);
+            Status = LaunchFeedback.AfterWrite(
+                _launcher,
+                launch,
+                path,
+                "Starting the " + SessionLabel(SelectedMode.Mode) + " session.");
             if (launch == GameLaunchStatus.SessionStarted) {
-                Status = "Wrote " + path + ". Starting the " + SessionLabel(SelectedMode.Mode) + " session.";
                 WatchForGame();
-            } else if (launch == GameLaunchStatus.GameNotFound) {
-                Status = "Wrote " + path + ". acs.exe is missing from the game folder, so the session was not started.";
-            } else if (launch == GameLaunchStatus.LaunchFailed) {
-                Status = "Wrote " + path + ". Proton did not start.";
-            } else {
-                Status = "Wrote " + path + ". Could not find Proton for this prefix, so the session was not started.";
             }
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) {
             Status = ex.Message;
@@ -299,6 +306,10 @@ public partial class DriveViewModel : ObservableObject
                         Post(token, "Assetto Corsa exited.");
                         return;
                     }
+                }
+
+                if (!sawGame) {
+                    Post(token, LaunchFeedback.GaveUp(_launcher));
                 }
             } catch (OperationCanceledException) {
                 // A newer Drive replaced this watch.
