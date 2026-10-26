@@ -17,6 +17,9 @@
     <DataTemplate DataType="vm:DriveViewModel">
       <views:DriveView />
     </DataTemplate>
+    <DataTemplate DataType="vm:ResultsViewModel">
+      <views:ResultsView />
+    </DataTemplate>
     <DataTemplate DataType="vm:ContentViewModel">
       <views:ContentView />
     </DataTemplate>
@@ -43,6 +46,7 @@
           <TextBlock Text="{Binding Version}" Opacity="0.7" Margin="0,0,0,16" />
           <Button Content="Install" Command="{Binding ShowInstallCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="Drive" Command="{Binding ShowDriveCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="Results" Command="{Binding ShowResultsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="Content" Command="{Binding ShowContentCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="Video" Command="{Binding ShowVideoCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="Settings" Command="{Binding ShowSettingsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />

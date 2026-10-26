@@ -22,6 +22,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         var ids = steamIds ?? new SteamLoginUsersLookup();
         Drive = new DriveViewModel(launcher, live);
+        Results = new ResultsViewModel();
         Video = new VideoViewModel();
         Content = new ContentViewModel();
         Settings = new SettingsViewModel();
@@ -34,6 +35,7 @@ public partial class MainWindowViewModel : ObservableObject
         };
         Install = new InstallViewModel(store, locator, layout => {
             Drive.UseLayout(layout);
+            Results.UseLayout(layout);
             Video.UseLayout(layout);
             Content.UseLayout(layout);
             Settings.UseLayout(layout);
@@ -51,6 +53,8 @@ public partial class MainWindowViewModel : ObservableObject
     public InstallViewModel Install { get; }
 
     public DriveViewModel Drive { get; }
+
+    public ResultsViewModel Results { get; }
 
     public VideoViewModel Video { get; }
 
@@ -71,6 +75,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     public bool IsDrivePage => ReferenceEquals(CurrentPage, Drive);
 
+    public bool IsResultsPage => ReferenceEquals(CurrentPage, Results);
+
     public bool IsContentPage => ReferenceEquals(CurrentPage, Content);
 
     public bool IsVideoPage => ReferenceEquals(CurrentPage, Video);
@@ -89,6 +95,13 @@ public partial class MainWindowViewModel : ObservableObject
     {
         Drive.RefreshLive();
         CurrentPage = Drive;
+    }
+
+    [RelayCommand]
+    private void ShowResults()
+    {
+        Results.Reload();
+        CurrentPage = Results;
     }
 
     [RelayCommand]
@@ -136,6 +149,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsInstallPage));
         OnPropertyChanged(nameof(IsDrivePage));
+        OnPropertyChanged(nameof(IsResultsPage));
         OnPropertyChanged(nameof(IsContentPage));
         OnPropertyChanged(nameof(IsVideoPage));
         OnPropertyChanged(nameof(IsSettingsPage));
