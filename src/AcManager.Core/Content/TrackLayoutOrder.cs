@@ -10,7 +10,8 @@ public readonly record struct TrackLayoutInfo(
     string? Name,
     double? Priority,
     string? Version = null,
-    string? Description = null);
+    string? Description = null,
+    string? City = null);
 
 /// <summary>
 /// Picks the main track layout the way <c>TrackObject.GetLayouts</c> does when the
@@ -24,7 +25,8 @@ public static class TrackLayoutOrder
         string rootName,
         IReadOnlyList<TrackLayoutInfo> layouts,
         string? rootVersion = null,
-        string? rootDescription = null)
+        string? rootDescription = null,
+        string? rootCity = null)
     {
         if (rootPresent) {
             var extras = layouts
@@ -32,7 +34,7 @@ public static class TrackLayoutOrder
                 .ThenBy(layout => layout.Id, StringComparer.Ordinal)
                 .Select(Display)
                 .ToList();
-            extras.Insert(0, new TrackLayout("", rootName, rootVersion, rootDescription));
+            extras.Insert(0, new TrackLayout("", rootName, rootVersion, rootDescription, rootCity));
             return extras;
         }
 
@@ -91,7 +93,8 @@ public static class TrackLayoutOrder
             layout.Id,
             string.IsNullOrWhiteSpace(layout.Name) ? layout.Id : layout.Name,
             layout.Version,
-            layout.Description);
+            layout.Description,
+            layout.City);
 
     private static string Preferred(string trackId, IReadOnlyList<TrackLayoutInfo> layouts)
     {

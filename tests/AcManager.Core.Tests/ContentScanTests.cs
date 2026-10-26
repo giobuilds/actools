@@ -413,6 +413,44 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_track_city_comes_from_the_layout_json()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-city-").FullName;
+        try {
+            WriteTrack(root, "mod_monza", """{ "name": "Monza", "city": "  Monza  " }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "city": "" }""");
+            WriteTrack(root, "mod_spaces", """{ "name": "Spaces", "city": "   " }""");
+            WriteTrack(root, "mod_number", """{ "name": "Number", "city": 12 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "city": "Monza" }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix", "city": "Imola" }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "city": "Silverstone" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "city": "Donington" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var monza = tracks.Single(track => track.Id == "mod_monza");
+            Assert.Equal("  Monza  ", monza.City);
+            Assert.Equal("  Monza  ", monza.Layouts[0].City);
+
+            Assert.Null(tracks.Single(track => track.Id == "mod_blank").City);
+            Assert.Equal("   ", tracks.Single(track => track.Id == "mod_spaces").City);
+            Assert.Equal("12", tracks.Single(track => track.Id == "mod_number").City);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").City);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("Monza", cup.City);
+            Assert.Equal("Imola", cup.Layouts[1].City);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal("Silverstone", layouts.City);
+            Assert.Equal("Donington", layouts.Layouts[1].City);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));

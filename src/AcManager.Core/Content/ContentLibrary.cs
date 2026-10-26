@@ -52,11 +52,19 @@ public sealed record CarSummary(
     public CarSkin? DefaultSkin => Skins.Count == 0 ? null : Skins[0];
 }
 
-public sealed record TrackLayout(string Id, string Name, string? Version = null, string? Description = null);
+public sealed record TrackLayout(
+    string Id,
+    string Name,
+    string? Version = null,
+    string? Description = null,
+    string? City = null);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
     public string Subtitle => Layouts.Count <= 1 ? Id : Id + "  ·  " + Layouts.Count.ToString(CultureInfo.InvariantCulture) + " layouts";
+
+    /// <summary>City of the main layout. Content Manager stores city on each layout.</summary>
+    public string? City => Layouts.Count == 0 ? null : Layouts[0].City;
 }
 
 public sealed record WeatherSummary(string Id, string Name);
@@ -148,24 +156,35 @@ public static class ContentLibrary
                         layoutName,
                         NumberOf(json, "priority"),
                         version,
-                        description));
+                        description,
+                        TextOf(json, "city")));
                 }
             }
 
             string rootName;
             string? rootVersion;
             string? rootDescription;
+            string? rootCity;
             if (rootPresent) {
                 var rootElement = ReadUiObject(rootJson);
                 (rootName, rootVersion) = SplitVersion(id, StringOf(rootElement, "name")?.Trim(), TextOf(rootElement, "version"));
                 (rootVersion, rootDescription) = DescriptionVersion(rootVersion, rootElement);
+                rootCity = TextOf(rootElement, "city");
             } else {
                 rootName = id;
                 rootVersion = null;
                 rootDescription = null;
+                rootCity = null;
             }
 
-            var layouts = TrackLayoutOrder.Arrange(id, rootPresent, rootName, found, rootVersion, rootDescription);
+            var layouts = TrackLayoutOrder.Arrange(
+                id,
+                rootPresent,
+                rootName,
+                found,
+                rootVersion,
+                rootDescription,
+                rootCity);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
