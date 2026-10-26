@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AcManager.App.ViewModels"
+             xmlns:online="using:AcManager.Core.Online"
+             xmlns:content="using:AcManager.Core.Content"
+             x:Class="AcManager.App.Views.OnlineView"
+             x:DataType="vm:OnlineViewModel">
+  <Grid ColumnDefinitions="420,*" ColumnSpacing="20">
+    <DockPanel Grid.Column="0">
+      <Button DockPanel.Dock="Top" Content="Refresh" Command="{Binding RefreshCommand}" HorizontalAlignment="Left" Margin="0,0,0,8" />
+      <TextBox DockPanel.Dock="Top" Margin="0,0,0,8" PlaceholderText="Filter servers" Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged}" />
+      <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,8,0,0">
+        <TextBox PlaceholderText="ip:httpPort" Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" />
+        <Button Grid.Column="1" Content="Add" Command="{Binding AddCommand}" />
+      </Grid>
+      <ListBox ItemsSource="{Binding FilteredServers}" SelectedItem="{Binding SelectedServer}">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="online:LobbyServer">
+            <StackPanel Margin="2">
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding Subtitle}" Opacity="0.65" FontSize="12" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+
+    <ScrollViewer Grid.Column="1">
+      <StackPanel Spacing="10" MaxWidth="520" HorizontalAlignment="Left">
+        <TextBlock Text="Online" FontSize="28" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding Details}" TextWrapping="Wrap" Opacity="0.8" />
+
+        <TextBlock Text="Car" />
+        <ComboBox ItemsSource="{Binding Cars}" SelectedItem="{Binding SelectedCar}" HorizontalAlignment="Stretch" PlaceholderText="No car">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="content:CarSummary">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBlock Text="{Binding JoinHint}" TextWrapping="Wrap" Opacity="0.75" />
+        <Button Content="Install missing content" Command="{Binding InstallMissingCommand}" HorizontalAlignment="Left" />
+
+        <TextBlock Text="Driver name" />
+        <TextBox Text="{Binding DriverName, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Text="Password" />
+        <TextBox Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}" PasswordChar="*" />
+        <Button Content="Join" Command="{Binding JoinCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

@@ -1,5 +1,6 @@
 using AcManager.App.ViewModels;
 using AcManager.App.Views;
+using AcManager.Core.Online;
 using AcTools.Platform.Linux;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -19,9 +20,15 @@ public partial class App : Application
             var locator = new SteamAcDiscovery();
             var launcher = new SteamGameLauncher();
             var openDrive = desktop.Args?.Contains("--drive") == true;
+            var invite = InviteLink.TryParseArgs(desktop.Args);
+            var window = new MainWindowViewModel(store, locator, launcher, openDrive);
             desktop.MainWindow = new MainWindow {
-                DataContext = new MainWindowViewModel(store, locator, launcher, openDrive),
+                DataContext = window,
             };
+            AcmanagerScheme.RegisterCurrentProcess();
+            if (invite != null) {
+                _ = window.OpenInviteAsync(invite);
+            }
         }
 
         base.OnFrameworkInitializationCompleted();

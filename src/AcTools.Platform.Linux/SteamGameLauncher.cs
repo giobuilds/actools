@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
 using AcTools.Platform;
@@ -6,6 +7,13 @@ namespace AcTools.Platform.Linux;
 
 public sealed class SteamGameLauncher : IGameLauncher
 {
+    private const string SetsidPath = "/usr/bin/setsid";
+
+    /// <summary>
+    /// Keeps each launch rooted so the runtime can reap it after the race exits.
+    /// </summary>
+    private static readonly ConcurrentBag<Process> DetachedSessions = new();
+
     private readonly IReadOnlyList<string> _steamRoots;
 
     public SteamGameLauncher()
@@ -49,11 +57,39 @@ public sealed class SteamGameLauncher : IGameLauncher
             start.Environment["SteamAppId"] = appId;
             start.Environment["SteamGameId"] = appId;
             start.Environment["SteamOverlayGameId"] = appId;
-            Process.Start(start);
+            StartAwayFromTheTerminal(start);
             return GameLaunchStatus.SessionStarted;
         } catch (Exception ex) when (ex is Win32Exception or IOException or InvalidOperationException) {
             return GameLaunchStatus.LaunchFailed;
         }
+    }
+
+    /// <summary>
+    /// Starts Proton in a new session and discards its output.
+    /// Closing this app returns the terminal and leaves the race running.
+    /// </summary>
+    private static void StartAwayFromTheTerminal(ProcessStartInfo start)
+    {
+        if (File.Exists(SetsidPath)) {
+            var command = start.FileName;
+            var arguments = start.ArgumentList.ToList();
+            start.FileName = SetsidPath;
+            start.ArgumentList.Clear();
+            start.ArgumentList.Add("/bin/sh");
+            start.ArgumentList.Add("-c");
+            start.ArgumentList.Add("exec \"$0\" \"$@\" </dev/null >/dev/null 2>&1");
+            start.ArgumentList.Add(command);
+            foreach (var argument in arguments) {
+                start.ArgumentList.Add(argument);
+            }
+        }
+
+        var process = new Process {
+            StartInfo = start,
+            EnableRaisingEvents = true,
+        };
+        process.Start();
+        DetachedSessions.Add(process);
     }
 
     public bool IsGameRunning()

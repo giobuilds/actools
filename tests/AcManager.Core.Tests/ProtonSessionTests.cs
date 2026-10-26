@@ -135,6 +135,7 @@ public class ProtonSessionTests
             Assert.EndsWith(
                 Path.Combine("steamapps", "common", "assettocorsa"),
                 File.ReadAllText(Path.Combine(record, "cwd")).Trim());
+            Assert.NotEqual(OwnSessionId(), File.ReadAllText(Path.Combine(record, "sid")).Trim());
         } finally {
             Directory.Delete(root, true);
         }
@@ -202,7 +203,16 @@ public class ProtonSessionTests
         + "printf '%s\\n' \"$STEAM_COMPAT_CLIENT_INSTALL_PATH\" > '" + record + "/client'\n"
         + "printf '%s\\n' \"$STEAM_COMPAT_INSTALL_PATH\" > '" + record + "/install'\n"
         + "printf '%s\\n' \"$SteamAppId\" > '" + record + "/appid'\n"
-        + "printf '%s\\n' \"$@\" > '" + record + "/args'\n";
+        + "printf '%s\\n' \"$@\" > '" + record + "/args'\n"
+        + "session=$(awk 'BEGIN{RS=\")\"} NR==2{print $4}' /proc/self/stat)\n"
+        + "printf '%s\\n' \"$session\" > '" + record + "/sid'\n";
+
+    private static string OwnSessionId()
+    {
+        var stat = File.ReadAllText("/proc/self/stat");
+        var fields = stat[(stat.LastIndexOf(')') + 2)..].Split(' ');
+        return fields[3];
+    }
 
     private static void WaitFor(string path)
     {

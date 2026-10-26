@@ -71,6 +71,62 @@ public static class IniText
         return joined;
     }
 
+    public static string RemoveKeys(string text, string section, IReadOnlyList<string> keys)
+    {
+        if (string.IsNullOrEmpty(text) || keys.Count == 0) {
+            return text ?? "";
+        }
+
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var endsWithNewline = text.EndsWith('\n');
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
+        if (endsWithNewline && lines.Count > 0 && lines[^1].Length == 0) {
+            lines.RemoveAt(lines.Count - 1);
+        }
+
+        var output = new List<string>(lines.Count);
+        var inSection = false;
+        foreach (var line in lines) {
+            var trimmed = line.Trim();
+            if (trimmed.Length >= 2 && trimmed[0] == '[' && trimmed[^1] == ']') {
+                var name = trimmed[1..^1].Trim();
+                inSection = name.Equals(section, StringComparison.OrdinalIgnoreCase);
+                output.Add(line);
+                continue;
+            }
+
+            if (inSection && IsKey(line, keys)) {
+                continue;
+            }
+
+            output.Add(line);
+        }
+
+        var joined = string.Join(newline, output);
+        if (endsWithNewline && output.Count > 0 && !joined.EndsWith('\n')) {
+            joined += newline;
+        }
+
+        return joined;
+    }
+
+    private static bool IsKey(string line, IReadOnlyList<string> keys)
+    {
+        var equals = line.IndexOf('=');
+        if (equals <= 0) {
+            return false;
+        }
+
+        var key = line[..equals].Trim();
+        foreach (var name in keys) {
+            if (key.Equals(name, StringComparison.OrdinalIgnoreCase)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void InsertMissing(
         List<string> output,
         int headerIndex,
