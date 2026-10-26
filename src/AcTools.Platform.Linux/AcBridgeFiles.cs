@@ -12,6 +12,9 @@ public static class AcBridgeFiles
     public static string PrefixExecutable(string compatDataPath) =>
         Path.Combine(compatDataPath, "pfx", "drive_c", "actools", FileName);
 
+    public static string BesideTheApp(string baseDirectory) =>
+        Path.Combine(baseDirectory, FileName);
+
     public static string? Stage(string? source, string compatDataPath)
     {
         if (string.IsNullOrWhiteSpace(source) || !File.Exists(source)) {
@@ -27,10 +30,22 @@ public static class AcBridgeFiles
         Directory.CreateDirectory(directory);
         var fullSource = Path.GetFullPath(source);
         var fullDestination = Path.GetFullPath(destination);
-        if (!string.Equals(fullSource, fullDestination, StringComparison.Ordinal)) {
+        if (!string.Equals(fullSource, fullDestination, StringComparison.Ordinal) && !SamePayload(fullSource, fullDestination)) {
             File.Copy(fullSource, fullDestination, overwrite: true);
         }
 
         return fullDestination;
+    }
+
+    private static bool SamePayload(string source, string destination)
+    {
+        if (!File.Exists(destination)) {
+            return false;
+        }
+
+        var sourceInfo = new FileInfo(source);
+        var destinationInfo = new FileInfo(destination);
+        return sourceInfo.Length == destinationInfo.Length
+            && destinationInfo.LastWriteTimeUtc >= sourceInfo.LastWriteTimeUtc;
     }
 }

@@ -21,4 +21,23 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
   </ItemGroup>
+
+  <!--
+    The helper is a Windows exe. Drive copies it into the Proton prefix when it sits beside Content Manager.
+    PublishAcBridge=false skips the copy, which keeps a design-time build from producing it.
+  -->
+  <PropertyGroup>
+    <AcBridgeProject>$(MSBuildThisFileDirectory)../AcBridge/AcBridge.csproj</AcBridgeProject>
+    <AcBridgePublishDir>$(MSBuildThisFileDirectory)obj/acbridge-publish/</AcBridgePublishDir>
+  </PropertyGroup>
+  <Target Name="PublishAcBridge" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true' and '$(PublishAcBridge)' != 'false'">
+    <MSBuild
+      Projects="$(AcBridgeProject)"
+      Targets="Publish"
+      Properties="Configuration=Release;RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;IncludeNativeLibrariesForSelfExtract=true;DebugType=none;DebugSymbols=false;PublishDir=$(AcBridgePublishDir)" />
+    <Copy
+      SourceFiles="$(AcBridgePublishDir)AcBridge.exe"
+      DestinationFolder="$(TargetDir)"
+      SkipUnchangedFiles="true" />
+  </Target>
 </Project>

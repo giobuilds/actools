@@ -119,7 +119,7 @@ public sealed class SteamGameLauncher : IGameLauncher
             return _bridgeExecutable;
         }
 
-        return Path.Combine(AppContext.BaseDirectory, AcBridgeFiles.FileName);
+        return AcBridgeFiles.BesideTheApp(AppContext.BaseDirectory);
     }
 
     private ProcessStartInfo StartInfo(

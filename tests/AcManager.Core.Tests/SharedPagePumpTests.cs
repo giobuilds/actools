@@ -8,6 +8,34 @@ namespace AcManager.Core.Tests;
 public class SharedPagePumpTests
 {
     [Fact]
+    public void Stage_keeps_the_prefix_copy_when_it_is_already_current()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-bridge-stage-").FullName;
+        try {
+            var source = Path.Combine(root, "AcBridge.exe");
+            var compat = Path.Combine(root, "compat");
+            Directory.CreateDirectory(compat);
+            File.WriteAllBytes(source, [1, 2, 3, 4]);
+            var staged = AcBridgeFiles.Stage(source, compat);
+
+            Assert.Equal(AcBridgeFiles.PrefixExecutable(compat), staged);
+            Assert.NotNull(staged);
+            Assert.Equal(new byte[] { 1, 2, 3, 4 }, File.ReadAllBytes(staged));
+            var written = File.GetLastWriteTimeUtc(staged);
+            Assert.Equal(staged, AcBridgeFiles.Stage(source, compat));
+            Assert.Equal(written, File.GetLastWriteTimeUtc(staged));
+
+            File.WriteAllBytes(source, [5, 6]);
+            File.SetLastWriteTimeUtc(source, written.AddMinutes(1));
+            AcBridgeFiles.Stage(source, compat);
+            Assert.Equal(new byte[] { 5, 6 }, File.ReadAllBytes(staged));
+            Assert.Null(AcBridgeFiles.Stage(Path.Combine(root, "missing.exe"), compat));
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Helper_port_matches_the_protocol()
     {
         Assert.Equal(SessionBridgeProtocol.DefaultPort, AcBridgeFiles.Port);
