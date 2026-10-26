@@ -50,7 +50,7 @@ public sealed record CarSummary(
     public CarSkin? DefaultSkin => Skins.Count == 0 ? null : Skins[0];
 }
 
-public sealed record TrackLayout(string Id, string Name);
+public sealed record TrackLayout(string Id, string Name, string? Version = null);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
@@ -79,7 +79,7 @@ public static class ContentLibrary
             var json = ReadUiObject(Path.Combine(directory, "ui", "ui_car.json"));
             var jsonName = StringOf(json, "name");
             var trimmedName = jsonName?.Trim();
-            var (name, version) = CarName(id, trimmedName, TextOf(json, "version"));
+            var (name, version) = SplitVersion(id, trimmedName, TextOf(json, "version"));
             cars.Add(new CarSummary(
                 id,
                 name,
@@ -133,18 +133,26 @@ public static class ContentLibrary
                     }
 
                     var json = ReadUiObject(layoutJson);
-                    found.Add(new TrackLayoutInfo(
-                        Path.GetFileName(layoutDirectory),
-                        StringOf(json, "name"),
-                        NumberOf(json, "priority")));
+                    var layoutId = Path.GetFileName(layoutDirectory);
+                    var (layoutName, layoutVersion) = SplitVersion(
+                        layoutId,
+                        StringOf(json, "name")?.Trim(),
+                        TextOf(json, "version"));
+                    found.Add(new TrackLayoutInfo(layoutId, layoutName, NumberOf(json, "priority"), layoutVersion));
                 }
             }
 
-            var layouts = TrackLayoutOrder.Arrange(
-                id,
-                rootPresent,
-                rootPresent ? NameOf(rootJson, id) : id,
-                found);
+            string rootName;
+            string? rootVersion;
+            if (rootPresent) {
+                var rootElement = ReadUiObject(rootJson);
+                (rootName, rootVersion) = SplitVersion(id, StringOf(rootElement, "name")?.Trim(), TextOf(rootElement, "version"));
+            } else {
+                rootName = id;
+                rootVersion = null;
+            }
+
+            var layouts = TrackLayoutOrder.Arrange(id, rootPresent, rootName, found, rootVersion);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
@@ -221,7 +229,7 @@ public static class ContentLibrary
         return false;
     }
 
-    private static (string Name, string? Version) CarName(string id, string? trimmedName, string? jsonVersion)
+    private static (string Name, string? Version) SplitVersion(string fallback, string? trimmedName, string? jsonVersion)
     {
         var version = jsonVersion?.Trim();
         if (string.IsNullOrEmpty(version)) {
@@ -229,7 +237,7 @@ public static class ContentLibrary
         }
 
         if (string.IsNullOrEmpty(trimmedName)) {
-            return (id, version);
+            return (fallback, version);
         }
 
         if (version != null) {
@@ -407,12 +415,6 @@ public static class ContentLibrary
         }
 
         return null;
-    }
-
-    private static string NameOf(string jsonPath, string fallback)
-    {
-        var json = ReadUiObject(jsonPath);
-        return StringOf(json, "name") ?? fallback;
     }
 
     private static string? StringOf(JsonElement? element, string property)

@@ -3,8 +3,8 @@ using System.Text.RegularExpressions;
 namespace AcManager.Core.Content;
 
 /// <summary>
-/// Trailing version in a car name. Copied from <c>AcStringValues.GetVersionFromName</c>.
-/// <c>AcJsonObjectNew.LoadVersionInfo</c> uses it when the JSON has no version.
+/// Trailing version in a display name. Copied from <c>AcStringValues.GetVersionFromName</c>.
+/// Cars and tracks use it when the JSON has no version.
 /// </summary>
 public static class CarVersion
 {

@@ -244,6 +244,61 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_trailing_version_leaves_the_track_name()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-version-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "  Spa v1.2.3  " }""");
+            WriteTrack(root, "mod_locked", """{ "name": "Locked v9.9", "version": "2" }""");
+            WriteTrack(root, "mod_number", """{ "name": "Numbered v9.9", "version": 1.5 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain v1" }""");
+            WriteTrack(root, "mod_sepang", """{ "name": "Sepang 2026" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup Circuit v1.2" }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Cup Circuit GP v1.2" }""");
+            WriteLayout(root, "mod_brands", "gp", """{ "name": "Brands Hatch v1.0" }""");
+            WriteLayout(root, "mod_brands", "club", """{ "name": "Brands Hatch v2.0" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal("Spa", spa.Name);
+            Assert.Equal("", spa.Layouts[0].Id);
+            Assert.Equal("Spa", spa.Layouts[0].Name);
+            Assert.Equal("1.2.3", spa.Layouts[0].Version);
+
+            var locked = tracks.Single(track => track.Id == "mod_locked");
+            Assert.Equal("Locked v9.9", locked.Name);
+            Assert.Equal("2", locked.Layouts[0].Version);
+
+            var numbered = tracks.Single(track => track.Id == "mod_number");
+            Assert.Equal("Numbered v9.9", numbered.Name);
+            Assert.Equal("1.5", numbered.Layouts[0].Version);
+
+            var plain = tracks.Single(track => track.Id == "mod_plain");
+            Assert.Equal("Plain v1", plain.Name);
+            Assert.Null(plain.Layouts[0].Version);
+
+            Assert.Equal("Sepang 2026", tracks.Single(track => track.Id == "mod_sepang").Name);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("Cup Circuit", cup.Name);
+            Assert.Equal(["", "gp"], cup.Layouts.Select(layout => layout.Id).ToArray());
+            Assert.Equal("Cup Circuit", cup.Layouts[0].Name);
+            Assert.Equal("1.2", cup.Layouts[0].Version);
+            Assert.Equal("Cup Circuit GP", cup.Layouts[1].Name);
+            Assert.Equal("1.2", cup.Layouts[1].Version);
+
+            var brands = tracks.Single(track => track.Id == "mod_brands");
+            Assert.Equal("Brands Hatch", brands.Name);
+            Assert.Equal(["gp", "club"], brands.Layouts.Select(layout => layout.Id).ToArray());
+            Assert.Equal("Brands Hatch", brands.Layouts[0].Name);
+            Assert.Equal("1.0", brands.Layouts[0].Version);
+            Assert.Equal("2.0", brands.Layouts[1].Version);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));
@@ -295,5 +350,19 @@ public class ContentScanTests
         var ui = Path.Combine(root, id, "ui");
         Directory.CreateDirectory(ui);
         File.WriteAllText(Path.Combine(ui, "ui_car.json"), json);
+    }
+
+    private static void WriteTrack(string root, string id, string json)
+    {
+        var ui = Path.Combine(root, id, "ui");
+        Directory.CreateDirectory(ui);
+        File.WriteAllText(Path.Combine(ui, "ui_track.json"), json);
+    }
+
+    private static void WriteLayout(string root, string id, string layout, string json)
+    {
+        var ui = Path.Combine(root, id, "ui", layout);
+        Directory.CreateDirectory(ui);
+        File.WriteAllText(Path.Combine(ui, "ui_track.json"), json);
     }
 }
