@@ -490,6 +490,45 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_track_pitboxes_keep_the_json_text()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-pits-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "pitboxes": "  24  " }""");
+            WriteTrack(root, "mod_note", """{ "name": "Note", "pitboxes": "about 20" }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "pitboxes": "" }""");
+            WriteTrack(root, "mod_spaces", """{ "name": "Spaces", "pitboxes": "   " }""");
+            WriteTrack(root, "mod_number", """{ "name": "Number", "pitboxes": 16 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "pitboxes": "20" }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix", "pitboxes": "30" }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "pitboxes": "18" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "pitboxes": "8" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal("24", spa.SpecsPitboxes);
+            Assert.Equal("24", spa.Layouts[0].SpecsPitboxes);
+            Assert.Equal("about 20", tracks.Single(track => track.Id == "mod_note").SpecsPitboxes);
+            Assert.Null(tracks.Single(track => track.Id == "mod_blank").SpecsPitboxes);
+            Assert.Equal("", tracks.Single(track => track.Id == "mod_spaces").SpecsPitboxes);
+            Assert.Equal("16", tracks.Single(track => track.Id == "mod_number").SpecsPitboxes);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").SpecsPitboxes);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("20", cup.SpecsPitboxes);
+            Assert.Equal("30", cup.Layouts[1].SpecsPitboxes);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal("18", layouts.SpecsPitboxes);
+            Assert.Equal("8", layouts.Layouts[1].SpecsPitboxes);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));

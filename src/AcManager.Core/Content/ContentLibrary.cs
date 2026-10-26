@@ -58,7 +58,8 @@ public sealed record TrackLayout(
     string? Version = null,
     string? Description = null,
     string? City = null,
-    string? SpecsLength = null);
+    string? SpecsLength = null,
+    string? SpecsPitboxes = null);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
@@ -69,6 +70,9 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
 
     /// <summary>Length text of the main layout. The kilometre conversion stays unread.</summary>
     public string? SpecsLength => Layouts.Count == 0 ? null : Layouts[0].SpecsLength;
+
+    /// <summary>Pit box text of the main layout. The numeric parse stays unread.</summary>
+    public string? SpecsPitboxes => Layouts.Count == 0 ? null : Layouts[0].SpecsPitboxes;
 }
 
 public sealed record WeatherSummary(string Id, string Name);
@@ -162,7 +166,8 @@ public static class ContentLibrary
                         version,
                         description,
                         TextOf(json, "city"),
-                        LengthOf(json)));
+                        LengthOf(json),
+                        PitboxesOf(json)));
                 }
             }
 
@@ -171,18 +176,21 @@ public static class ContentLibrary
             string? rootDescription;
             string? rootCity;
             string? rootLength;
+            string? rootPitboxes;
             if (rootPresent) {
                 var rootElement = ReadUiObject(rootJson);
                 (rootName, rootVersion) = SplitVersion(id, StringOf(rootElement, "name")?.Trim(), TextOf(rootElement, "version"));
                 (rootVersion, rootDescription) = DescriptionVersion(rootVersion, rootElement);
                 rootCity = TextOf(rootElement, "city");
                 rootLength = LengthOf(rootElement);
+                rootPitboxes = PitboxesOf(rootElement);
             } else {
                 rootName = id;
                 rootVersion = null;
                 rootDescription = null;
                 rootCity = null;
                 rootLength = null;
+                rootPitboxes = null;
             }
 
             var layouts = TrackLayoutOrder.Arrange(
@@ -193,7 +201,8 @@ public static class ContentLibrary
                 rootVersion,
                 rootDescription,
                 rootCity,
-                rootLength);
+                rootLength,
+                rootPitboxes);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
@@ -309,6 +318,12 @@ public static class ContentLibrary
     /// The kilometre conversion stays unread.
     /// </summary>
     private static string? LengthOf(JsonElement? element) => TextOf(element, "length")?.Trim();
+
+    /// <summary>
+    /// <c>TrackObjectBase.SpecsPitboxes</c> trims the JSON text. An all-space value becomes empty.
+    /// The numeric parse stays unread.
+    /// </summary>
+    private static string? PitboxesOf(JsonElement? element) => TextOf(element, "pitboxes")?.Trim();
 
     private static IReadOnlyList<string> TagsOf(JsonElement? element)
     {
