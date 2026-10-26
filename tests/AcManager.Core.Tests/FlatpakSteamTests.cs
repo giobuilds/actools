@@ -151,6 +151,62 @@ public class FlatpakSteamTests
         }
     }
 
+    [Fact]
+    [SupportedOSPlatform("linux")]
+    public void Launch_starts_acbridge_inside_the_flatpak_sandbox()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-flatpak-bridge-").FullName;
+        try {
+            var app = Path.Combine(root, ".var", "app", FlatpakSteam.AppId);
+            var steam = Path.Combine(app, ".local", "share", "Steam");
+            Directory.CreateDirectory(Path.Combine(steam, "ubuntu12_32"));
+            var game = Path.Combine(steam, "steamapps", "common", "assettocorsa");
+            Directory.CreateDirectory(game);
+            var acs = Path.Combine(game, "acs.exe");
+            File.WriteAllText(acs, "");
+            var compat = Path.Combine(steam, "steamapps", "compatdata", "244210");
+            Directory.CreateDirectory(Path.Combine(compat, "pfx"));
+            File.WriteAllText(Path.Combine(compat, "version"), "GE-Proton10-32\n");
+            var record = Path.Combine(root, "record");
+            Directory.CreateDirectory(record);
+            var proton = Path.Combine(steam, "compatibilitytools.d", "GE-Proton10-32", "proton");
+            Directory.CreateDirectory(Path.GetDirectoryName(proton)!);
+            File.WriteAllText(proton, "#!/bin/sh\nexit 0\n");
+            var flatpak = Path.Combine(root, "flatpak");
+            File.WriteAllText(flatpak, "#!/bin/sh\nprintf '%s\\n' \"$@\" > '" + record + "/call.'$$\n");
+            File.SetUnixFileMode(flatpak, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            var bridge = Path.Combine(root, "AcBridge.exe");
+            File.WriteAllBytes(bridge, [9]);
+            var state = Path.Combine(root, "state");
+            var launcher = new SteamGameLauncher([steam], state, () => true, flatpak, bridge);
+
+            var status = launcher.LaunchSession(new AcInstallLayout(game, null, Path.Combine(compat, "pfx"), "Steam"));
+
+            Assert.Equal(GameLaunchStatus.SessionStarted, status);
+            var staged = AcBridgeFiles.PrefixExecutable(compat);
+            Assert.Equal(new byte[] { 9 }, File.ReadAllBytes(staged));
+            var sandboxBridge = FlatpakSteam.SandboxPath(staged);
+            var sandboxAcs = FlatpakSteam.SandboxPath(acs);
+            var deadline = DateTime.UtcNow.AddSeconds(3);
+            string[][] calls = [];
+            while (DateTime.UtcNow < deadline) {
+                var files = Directory.GetFiles(record, "call.*");
+                if (files.Length >= 2) {
+                    calls = files.Select(File.ReadAllLines).ToArray();
+                    break;
+                }
+
+                Thread.Sleep(20);
+            }
+
+            Assert.Contains(calls, lines => lines.Contains("--port") && lines.Contains("27150") && lines.Contains(sandboxBridge));
+            Assert.Contains(calls, lines => lines[^3..].SequenceEqual([FlatpakSteam.AppId, "waitforexitandrun", sandboxAcs]));
+            Assert.DoesNotContain(calls, lines => lines[^3..].SequenceEqual([FlatpakSteam.AppId, "waitforexitandrun", sandboxAcs]) && lines.Contains("--port"));
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static string FlatpakScript(string record) =>
         "#!/bin/sh\n"
         + "printf '%s\\n' \"$@\" > '" + record + "/args'\n"

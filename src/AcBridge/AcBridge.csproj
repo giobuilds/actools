@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>AcBridge</RootNamespace>
+    <AssemblyName>AcBridge</AssemblyName>
+    <Description>Windows helper that reads Assetto Corsa shared memory inside the Proton prefix.</Description>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../AcManager.Core/AcManager.Core.csproj" />
+  </ItemGroup>
+</Project>

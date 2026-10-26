@@ -27,6 +27,8 @@ public sealed class SteamGameLauncher : IGameLauncher
 
     private readonly string _flatpakExecutable;
 
+    private readonly string? _bridgeExecutable;
+
     public SteamGameLauncher()
         : this(SteamAcDiscovery.GetDefaultSteamRoots(), XdgAppPaths.DefaultStateDirectory())
     {
@@ -41,12 +43,14 @@ public sealed class SteamGameLauncher : IGameLauncher
         IReadOnlyList<string> steamRoots,
         string stateDirectory,
         Func<bool>? steamIsRunning = null,
-        string? flatpakExecutable = null)
+        string? flatpakExecutable = null,
+        string? bridgeExecutable = null)
     {
         _steamRoots = steamRoots;
         _stateDirectory = Path.GetFullPath(stateDirectory);
         _steamIsRunning = steamIsRunning;
         _flatpakExecutable = string.IsNullOrWhiteSpace(flatpakExecutable) ? FlatpakPath : flatpakExecutable;
+        _bridgeExecutable = bridgeExecutable;
         LaunchLogPath = Path.Combine(_stateDirectory, "launch.log");
     }
 
@@ -82,34 +86,22 @@ public sealed class SteamGameLauncher : IGameLauncher
         string? logPath = null;
         try {
             logPath = PrepareLog();
-            var start = new ProcessStartInfo {
-                WorkingDirectory = command.WorkingDirectory,
-                UseShellExecute = false,
-            };
-            if (insideFlatpak) {
-                start.FileName = _flatpakExecutable;
-                foreach (var argument in FlatpakSteam.Arguments(command)) {
-                    start.ArgumentList.Add(argument);
+            try {
+                var staged = AcBridgeFiles.Stage(BridgeSource(), command.CompatDataPath);
+                if (staged != null) {
+                    StartAwayFromTheTerminal(StartInfo(command, insideFlatpak, logPath, staged, [
+                        "--port",
+                        AcBridgeFiles.Port.ToString(CultureInfo.InvariantCulture),
+                    ]));
                 }
-            } else {
-                start.FileName = command.ProtonScript;
-                start.ArgumentList.Add(ProtonSession.LaunchVerb);
-                start.ArgumentList.Add(command.GameExecutable);
-                start.Environment["STEAM_COMPAT_DATA_PATH"] = command.CompatDataPath;
-                start.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = command.SteamClientPath;
-                start.Environment["STEAM_COMPAT_INSTALL_PATH"] = command.WorkingDirectory;
-                if (!string.IsNullOrEmpty(command.LibraryPath)) {
-                    start.Environment["STEAM_COMPAT_LIBRARY_PATHS"] = command.LibraryPath;
-                }
-
-                var appId = AcInstallLayout.AssettoCorsaAppId.ToString();
-                start.Environment["STEAM_COMPAT_APP_ID"] = appId;
-                start.Environment["SteamAppId"] = appId;
-                start.Environment["SteamGameId"] = appId;
-                start.Environment["SteamOverlayGameId"] = appId;
+            } catch (Win32Exception) {
+                // The race still starts. Live timing stays off when the helper does not.
+            } catch (IOException) {
+            } catch (InvalidOperationException) {
+            } catch (UnauthorizedAccessException) {
             }
 
-            start.Environment["ACTOOLS_LAUNCH_LOG"] = logPath;
+            var start = StartInfo(command, insideFlatpak, logPath, command.GameExecutable, null);
             StartAwayFromTheTerminal(start);
             LaunchDetail = (insideFlatpak ? "Flatpak Proton output is in " : "Proton output is in ") + logPath + ".";
             return GameLaunchStatus.SessionStarted;
@@ -119,6 +111,60 @@ public sealed class SteamGameLauncher : IGameLauncher
                 : "Proton did not start. The log is " + logPath + ". " + ex.Message;
             return GameLaunchStatus.LaunchFailed;
         }
+    }
+
+    private string BridgeSource()
+    {
+        if (_bridgeExecutable != null) {
+            return _bridgeExecutable;
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, AcBridgeFiles.FileName);
+    }
+
+    private ProcessStartInfo StartInfo(
+        ProtonSessionCommand command,
+        bool insideFlatpak,
+        string logPath,
+        string executable,
+        IReadOnlyList<string>? extraArguments)
+    {
+        var start = new ProcessStartInfo {
+            WorkingDirectory = command.WorkingDirectory,
+            UseShellExecute = false,
+        };
+        if (insideFlatpak) {
+            start.FileName = _flatpakExecutable;
+            var launched = command with { GameExecutable = executable };
+            foreach (var argument in FlatpakSteam.Arguments(launched)) {
+                start.ArgumentList.Add(argument);
+            }
+        } else {
+            start.FileName = command.ProtonScript;
+            start.ArgumentList.Add(ProtonSession.LaunchVerb);
+            start.ArgumentList.Add(executable);
+            start.Environment["STEAM_COMPAT_DATA_PATH"] = command.CompatDataPath;
+            start.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = command.SteamClientPath;
+            start.Environment["STEAM_COMPAT_INSTALL_PATH"] = command.WorkingDirectory;
+            if (!string.IsNullOrEmpty(command.LibraryPath)) {
+                start.Environment["STEAM_COMPAT_LIBRARY_PATHS"] = command.LibraryPath;
+            }
+
+            var appId = AcInstallLayout.AssettoCorsaAppId.ToString();
+            start.Environment["STEAM_COMPAT_APP_ID"] = appId;
+            start.Environment["SteamAppId"] = appId;
+            start.Environment["SteamGameId"] = appId;
+            start.Environment["SteamOverlayGameId"] = appId;
+        }
+
+        if (extraArguments != null) {
+            foreach (var extra in extraArguments) {
+                start.ArgumentList.Add(extra);
+            }
+        }
+
+        start.Environment["ACTOOLS_LAUNCH_LOG"] = logPath;
+        return start;
     }
 
     /// <summary>

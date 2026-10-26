@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/AcBridge/AcBridge.csproj" />
     <Project Path="src/AcManager.App/AcManager.App.csproj" />
     <Project Path="src/AcManager.Core/AcManager.Core.csproj" />
     <Project Path="src/AcTools.Core/AcTools.Core.csproj" />

@@ -54,6 +54,28 @@ public class SessionBridgeTests
     }
 
     [Fact]
+    public void Second_client_reads_a_frame_published_after_the_first_left()
+    {
+        using var host = new SessionBridgeHost();
+        var first = new byte[AcSharedLayout.PhysicsSize];
+        BinaryPrimitives.WriteInt32LittleEndian(first.AsSpan(AcSharedLayout.GearOffset), 2);
+        BinaryPrimitives.WriteSingleLittleEndian(first.AsSpan(AcSharedLayout.SpeedOffset), 10f);
+        host.Publish(SessionBridgeProtocol.Physics, 1, first);
+        var earlier = new SessionBridgeClient(host.Port, TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(200)).ReadNote();
+        Assert.Contains("10 km/h", earlier, StringComparison.Ordinal);
+
+        Thread.Sleep(100);
+        var second = new byte[AcSharedLayout.PhysicsSize];
+        BinaryPrimitives.WriteInt32LittleEndian(second.AsSpan(AcSharedLayout.GearOffset), 3);
+        BinaryPrimitives.WriteSingleLittleEndian(second.AsSpan(AcSharedLayout.SpeedOffset), 142.5f);
+        host.Publish(SessionBridgeProtocol.Physics, 2, second);
+        var later = new SessionBridgeClient(host.Port, TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(200)).ReadNote();
+
+        Assert.Contains("gear 2", later, StringComparison.Ordinal);
+        Assert.Contains("142.5 km/h", later, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Client_refuses_a_hello_whose_page_size_does_not_match()
     {
         using var host = new SessionBridgeHost(physicsSize: 4);

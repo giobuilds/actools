@@ -4,27 +4,34 @@ using System.Threading.Channels;
 
 namespace AcManager.Core.Bridge;
 
-/// <summary>
-/// Speaks the AcBridge protocol on 127.0.0.1. The Windows helper will feed it from the game's shared memory.
-/// </summary>
-public sealed class SessionBridgeHost : IDisposable
+public interface ISessionFrameSink
 {
-    private readonly int _physicsSize;
-    private readonly int _graphicsSize;
-    private readonly int _staticSize;
+    void Publish(byte type, int packetId, ReadOnlySpan<byte> payload);
+}
+
+/// <summary>
+/// Speaks the AcBridge protocol on 127.0.0.1. A client that leaves is dropped so the next visit can connect.
+/// </summary>
+public sealed class SessionBridgeHost : ISessionFrameSink, IDisposable
+{
+    private const int QueueLength = 8;
+
     private readonly TcpListener _listener;
-    private readonly Channel<byte[]> _frames = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions {
+    private readonly byte[] _hello;
+    private readonly Channel<byte[]> _frames = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(QueueLength) {
         SingleReader = true,
+        FullMode = BoundedChannelFullMode.DropOldest,
     });
     private readonly CancellationTokenSource _cancel = new();
     private readonly Task _serve;
 
-    public SessionBridgeHost(int? physicsSize = null, int? graphicsSize = null, int? staticSize = null)
+    public SessionBridgeHost(int? physicsSize = null, int? graphicsSize = null, int? staticSize = null, int port = 0)
     {
-        _physicsSize = physicsSize ?? AcSharedLayout.PhysicsSize;
-        _graphicsSize = graphicsSize ?? AcSharedLayout.GraphicsSize;
-        _staticSize = staticSize ?? AcSharedLayout.StaticSize;
-        _listener = new TcpListener(IPAddress.Loopback, 0);
+        _hello = SessionBridgeProtocol.EncodeHello(
+            physicsSize ?? AcSharedLayout.PhysicsSize,
+            graphicsSize ?? AcSharedLayout.GraphicsSize,
+            staticSize ?? AcSharedLayout.StaticSize);
+        _listener = new TcpListener(IPAddress.Loopback, port);
         _listener.Start();
         var endpoint = (IPEndPoint)_listener.LocalEndpoint;
         Address = endpoint.Address;
@@ -36,7 +43,7 @@ public sealed class SessionBridgeHost : IDisposable
 
     public int Port { get; }
 
-    public void Publish(byte type, int packetId, byte[] payload)
+    public void Publish(byte type, int packetId, ReadOnlySpan<byte> payload)
     {
         _frames.Writer.TryWrite(SessionBridgeProtocol.EncodeFrame(type, packetId, payload));
     }
@@ -57,15 +64,43 @@ public sealed class SessionBridgeHost : IDisposable
     private async Task Serve()
     {
         try {
-            using var client = await _listener.AcceptTcpClientAsync(_cancel.Token);
-            client.NoDelay = true;
-            await using var stream = client.GetStream();
-            var hello = SessionBridgeProtocol.EncodeHello(_physicsSize, _graphicsSize, _staticSize);
-            await stream.WriteAsync(hello, _cancel.Token);
-            await foreach (var frame in _frames.Reader.ReadAllAsync(_cancel.Token)) {
-                await stream.WriteAsync(frame, _cancel.Token);
+            while (!_cancel.IsCancellationRequested) {
+                TcpClient client;
+                try {
+                    client = await _listener.AcceptTcpClientAsync(_cancel.Token);
+                } catch (Exception ex) when (IsStop(ex)) {
+                    break;
+                }
+
+                using (client) {
+                    try {
+                        await WriteTo(client);
+                    } catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException) {
+                    }
+                }
             }
-        } catch (Exception ex) when (ex is OperationCanceledException or IOException or SocketException or ObjectDisposedException or InvalidOperationException) {
+        } catch (Exception ex) when (IsStop(ex)) {
         }
     }
+
+    private async Task WriteTo(TcpClient client)
+    {
+        client.NoDelay = true;
+        await using var stream = client.GetStream();
+        await stream.WriteAsync(_hello, _cancel.Token);
+        while (!_cancel.IsCancellationRequested) {
+            while (_frames.Reader.TryRead(out var frame)) {
+                await stream.WriteAsync(frame, _cancel.Token);
+            }
+
+            if (client.Client.Poll(0, SelectMode.SelectRead) && client.Client.Available == 0) {
+                return;
+            }
+
+            await Task.Delay(20, _cancel.Token);
+        }
+    }
+
+    private static bool IsStop(Exception ex) =>
+        ex is OperationCanceledException or IOException or SocketException or ObjectDisposedException or InvalidOperationException;
 }

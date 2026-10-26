@@ -152,6 +152,42 @@ public class ProtonSessionTests
     }
 
     [Fact]
+    [SupportedOSPlatform("linux")]
+    public void Launch_copies_acbridge_into_the_prefix_and_starts_it_before_the_race()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-bridge-run-").FullName;
+        try {
+            var steam = ClientRoot(root);
+            var game = WriteGame(steam);
+            var compat = WriteCompat(steam, "GE-Proton10-32\n");
+            var record = Path.Combine(root, "record");
+            Directory.CreateDirectory(record);
+            var proton = Path.Combine(steam, "compatibilitytools.d", "GE-Proton10-32", "proton");
+            Directory.CreateDirectory(Path.GetDirectoryName(proton)!);
+            File.WriteAllText(proton, CallScript(record));
+            File.SetUnixFileMode(proton, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            File.WriteAllText(Path.Combine(steam, "steam.sh"), "#!/bin/sh\nexit 0\n");
+            var bridge = Path.Combine(root, "AcBridge.exe");
+            File.WriteAllBytes(bridge, [1, 2, 3, 4]);
+            var state = Path.Combine(root, "state");
+            var launcher = new SteamGameLauncher([steam], state, () => true, bridgeExecutable: bridge);
+
+            var status = launcher.LaunchSession(Layout(game, compat));
+
+            Assert.Equal(GameLaunchStatus.SessionStarted, status);
+            var staged = AcBridgeFiles.PrefixExecutable(compat);
+            Assert.Equal(new byte[] { 1, 2, 3, 4 }, File.ReadAllBytes(staged));
+            var calls = WaitForCalls(record, 2);
+            var acs = Path.Combine(game, "acs.exe");
+            Assert.Contains(calls, lines => lines.SequenceEqual(["waitforexitandrun", staged, "--port", "27150"]));
+            Assert.Contains(calls, lines => lines.SequenceEqual(["waitforexitandrun", acs]));
+            Assert.All(Directory.GetFiles(record, "compat.*"), path => Assert.Equal(compat, File.ReadAllText(path).Trim()));
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Launch_does_not_start_a_process_when_proton_or_the_game_is_missing()
     {
         var root = Directory.CreateTempSubdirectory("actools-proton-miss-").FullName;
@@ -270,6 +306,26 @@ public class ProtonSessionTests
         } finally {
             Directory.Delete(root, true);
         }
+    }
+
+    private static string CallScript(string record) =>
+        "#!/bin/sh\n"
+        + "printf '%s\\n' \"$@\" > '" + record + "/call.'$$\n"
+        + "printf '%s\\n' \"$STEAM_COMPAT_DATA_PATH\" > '" + record + "/compat.'$$\n";
+
+    private static string[][] WaitForCalls(string record, int count)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(3);
+        while (DateTime.UtcNow < deadline) {
+            var files = Directory.GetFiles(record, "call.*");
+            if (files.Length >= count) {
+                return files.Select(File.ReadAllLines).ToArray();
+            }
+
+            Thread.Sleep(20);
+        }
+
+        return Directory.GetFiles(record, "call.*").Select(File.ReadAllLines).ToArray();
     }
 
     private static string Script(string record) =>
