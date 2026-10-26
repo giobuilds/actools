@@ -23,6 +23,9 @@
     <DataTemplate DataType="vm:VideoViewModel">
       <views:VideoView />
     </DataTemplate>
+    <DataTemplate DataType="vm:SettingsViewModel">
+      <views:SettingsView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <Grid ColumnDefinitions="200,*">
@@ -36,6 +39,7 @@
           <Button Content="Drive" Command="{Binding ShowDriveCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="Content" Command="{Binding ShowContentCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="Video" Command="{Binding ShowVideoCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="Settings" Command="{Binding ShowSettingsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
         </StackPanel>
         <TextBlock VerticalAlignment="Bottom" Opacity="0.6" TextWrapping="Wrap" Text="Sessions launch through Proton." />
       </DockPanel>
