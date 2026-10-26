@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AcManager.App.ViewModels"
+             x:Class="AcManager.App.Views.ContentView"
+             x:DataType="vm:ContentViewModel">
+  <ScrollViewer>
+    <StackPanel MaxWidth="760" HorizontalAlignment="Left" Spacing="12">
+      <TextBlock Text="Content" FontSize="28" FontWeight="SemiBold" />
+      <TextBlock TextWrapping="Wrap" Opacity="0.8"
+                 Text="Install a car or a track from a .zip into the game content folder. The archive needs a ui/ui_car.json or ui/ui_track.json. A folder that is already there is left alone. 7z is not supported yet." />
+
+      <TextBlock Text="Archive" />
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <TextBox Grid.Column="0" Text="{Binding ArchivePath}" PlaceholderText="Path to a .zip archive" />
+        <Button Grid.Column="1" Content="Browse…" Click="Browse" />
+      </Grid>
+
+      <Button Content="Install" Command="{Binding InstallCommand}" HorizontalAlignment="Left" />
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

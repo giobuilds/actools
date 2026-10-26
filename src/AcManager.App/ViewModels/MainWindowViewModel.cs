@@ -10,9 +10,12 @@ public partial class MainWindowViewModel : ObservableObject
     {
         Drive = new DriveViewModel(launcher);
         Video = new VideoViewModel();
+        Content = new ContentViewModel();
+        Content.Installed = Drive.Rescan;
         Install = new InstallViewModel(store, locator, layout => {
             Drive.UseLayout(layout);
             Video.UseLayout(layout);
+            Content.UseLayout(layout);
         });
         Install.Publish();
         CurrentPage = openDrive ? Drive : Install;
@@ -24,12 +27,16 @@ public partial class MainWindowViewModel : ObservableObject
 
     public VideoViewModel Video { get; }
 
+    public ContentViewModel Content { get; }
+
     [ObservableProperty]
     private ObservableObject _currentPage = null!;
 
     public bool IsInstallPage => ReferenceEquals(CurrentPage, Install);
 
     public bool IsDrivePage => ReferenceEquals(CurrentPage, Drive);
+
+    public bool IsContentPage => ReferenceEquals(CurrentPage, Content);
 
     public bool IsVideoPage => ReferenceEquals(CurrentPage, Video);
 
@@ -38,6 +45,9 @@ public partial class MainWindowViewModel : ObservableObject
 
     [RelayCommand]
     private void ShowDrive() => CurrentPage = Drive;
+
+    [RelayCommand]
+    private void ShowContent() => CurrentPage = Content;
 
     [RelayCommand]
     private void ShowVideo()
@@ -50,6 +60,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsInstallPage));
         OnPropertyChanged(nameof(IsDrivePage));
+        OnPropertyChanged(nameof(IsContentPage));
         OnPropertyChanged(nameof(IsVideoPage));
     }
 }
