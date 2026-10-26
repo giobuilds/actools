@@ -1,3 +1,5 @@
+using AcManager.Core.Content;
+using AcManager.Core.Online;
 using AcTools.Platform;
 using AcManager.App;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -7,20 +9,34 @@ namespace AcManager.App.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject
 {
-    public MainWindowViewModel(IInstallSettingsStore store, IInstallLocator locator, IGameLauncher launcher, bool openDrive = false)
+    public MainWindowViewModel(
+        IInstallSettingsStore store,
+        IInstallLocator locator,
+        IGameLauncher launcher,
+        bool openDrive = false,
+        IOnlineDirectory? servers = null,
+        ISteamIdLookup? steamIds = null,
+        IServerContentInstaller? contentInstaller = null)
     {
+        var ids = steamIds ?? new SteamLoginUsersLookup();
         Drive = new DriveViewModel(launcher);
         Video = new VideoViewModel();
         Content = new ContentViewModel();
         Settings = new SettingsViewModel();
         Csp = new CspViewModel();
+        Online = new OnlineViewModel(launcher, servers ?? new HttpLobbyDirectory(ids.MostRecentId), ids, contentInstaller);
         Content.Installed = Drive.Rescan;
+        Online.Installed = () => {
+            Drive.Rescan();
+            Content.Reload();
+        };
         Install = new InstallViewModel(store, locator, layout => {
             Drive.UseLayout(layout);
             Video.UseLayout(layout);
             Content.UseLayout(layout);
             Settings.UseLayout(layout);
             Csp.UseLayout(layout);
+            Online.UseLayout(layout);
         });
         Install.Publish();
         CurrentPage = openDrive ? Drive : Install;
@@ -38,6 +54,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     public CspViewModel Csp { get; }
 
+    public OnlineViewModel Online { get; }
+
     public string Version => AppVersion.Current;
 
     [ObservableProperty]
@@ -54,6 +72,8 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsSettingsPage => ReferenceEquals(CurrentPage, Settings);
 
     public bool IsCspPage => ReferenceEquals(CurrentPage, Csp);
+
+    public bool IsOnlinePage => ReferenceEquals(CurrentPage, Online);
 
     [RelayCommand]
     private void ShowInstall() => CurrentPage = Install;
@@ -89,6 +109,19 @@ public partial class MainWindowViewModel : ObservableObject
         CurrentPage = Csp;
     }
 
+    [RelayCommand]
+    private void ShowOnline()
+    {
+        Online.Reload();
+        CurrentPage = Online;
+    }
+
+    public Task OpenInviteAsync(OnlineInvite invite)
+    {
+        CurrentPage = Online;
+        return Online.OpenInviteAsync(invite);
+    }
+
     partial void OnCurrentPageChanged(ObservableObject value)
     {
         OnPropertyChanged(nameof(IsInstallPage));
@@ -97,5 +130,6 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(IsVideoPage));
         OnPropertyChanged(nameof(IsSettingsPage));
         OnPropertyChanged(nameof(IsCspPage));
+        OnPropertyChanged(nameof(IsOnlinePage));
     }
 }
