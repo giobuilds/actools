@@ -26,6 +26,9 @@
     <DataTemplate DataType="vm:SettingsViewModel">
       <views:SettingsView />
     </DataTemplate>
+    <DataTemplate DataType="vm:CspViewModel">
+      <views:CspView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <Grid ColumnDefinitions="200,*">
@@ -40,6 +43,7 @@
           <Button Content="Content" Command="{Binding ShowContentCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="Video" Command="{Binding ShowVideoCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="Settings" Command="{Binding ShowSettingsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="CSP" Command="{Binding ShowCspCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
         </StackPanel>
         <TextBlock VerticalAlignment="Bottom" Opacity="0.6" TextWrapping="Wrap" Text="Sessions launch through Proton." />
       </DockPanel>
