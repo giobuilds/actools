@@ -76,6 +76,24 @@ public partial class DriveViewModel : ObservableObject
     private bool _showOpponents;
 
     [ObservableProperty]
+    private bool _showAi;
+
+    [ObservableProperty]
+    private bool _showMatches;
+
+    [ObservableProperty]
+    private bool _showWeekend;
+
+    [ObservableProperty]
+    private decimal _dragMatches = 10;
+
+    [ObservableProperty]
+    private decimal _practiceMinutes = 15;
+
+    [ObservableProperty]
+    private decimal _qualificationMinutes = 30;
+
+    [ObservableProperty]
     private string? _previewPath;
 
     [ObservableProperty]
@@ -91,6 +109,10 @@ public partial class DriveViewModel : ObservableObject
         new(QuickDriveMode.Hotlap, "Hotlap"),
         new(QuickDriveMode.Race, "Race"),
         new(QuickDriveMode.TrackDay, "Track Day"),
+        new(QuickDriveMode.TimeAttack, "Time Attack"),
+        new(QuickDriveMode.Drift, "Drift"),
+        new(QuickDriveMode.Drag, "Drag"),
+        new(QuickDriveMode.Weekend, "Weekend"),
     ];
 
     [ObservableProperty]
@@ -174,10 +196,14 @@ public partial class DriveViewModel : ObservableObject
 
     partial void OnSelectedModeChanged(DriveModeOption value)
     {
-        ShowMinutes = value.Mode == QuickDriveMode.Practice;
-        ShowSpawn = value.Mode == QuickDriveMode.Practice;
-        ShowLaps = value.Mode == QuickDriveMode.Race;
-        ShowOpponents = value.Mode is QuickDriveMode.Race or QuickDriveMode.TrackDay;
+        var mode = value.Mode;
+        ShowMinutes = mode is QuickDriveMode.Practice or QuickDriveMode.TimeAttack or QuickDriveMode.Drift;
+        ShowSpawn = mode is QuickDriveMode.Practice or QuickDriveMode.Drift;
+        ShowLaps = mode is QuickDriveMode.Race or QuickDriveMode.Weekend;
+        ShowOpponents = mode is QuickDriveMode.Race or QuickDriveMode.TrackDay or QuickDriveMode.Weekend;
+        ShowAi = ShowOpponents || mode == QuickDriveMode.Drag;
+        ShowMatches = mode == QuickDriveMode.Drag;
+        ShowWeekend = mode == QuickDriveMode.Weekend;
     }
 
     private void ApplyFilter()
@@ -231,6 +257,9 @@ public partial class DriveViewModel : ObservableObject
                 RaceLaps = (int)RaceLaps,
                 Opponents = (int)Opponents,
                 AiLevel = (int)AiLevel,
+                DragMatches = (int)DragMatches,
+                PracticeMinutes = (int)PracticeMinutes,
+                QualificationMinutes = (int)QualificationMinutes,
             });
             var launch = _launcher.LaunchSession(_layout);
             if (launch == GameLaunchStatus.SessionStarted) {
@@ -294,6 +323,10 @@ public partial class DriveViewModel : ObservableObject
         QuickDriveMode.Hotlap => "hotlap",
         QuickDriveMode.Race => "race",
         QuickDriveMode.TrackDay => "track day",
+        QuickDriveMode.TimeAttack => "time attack",
+        QuickDriveMode.Drift => "drift",
+        QuickDriveMode.Drag => "drag",
+        QuickDriveMode.Weekend => "weekend",
         _ => "practice",
     };
 }

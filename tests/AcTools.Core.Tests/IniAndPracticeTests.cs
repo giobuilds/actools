@@ -75,7 +75,13 @@ public class IniAndPracticeTests
         Assert.Contains("DRIVER_NAME=Keeper\r\n", text, StringComparison.Ordinal);
         Assert.Contains("[GHOST_CAR]\r\n", text, StringComparison.Ordinal);
         Assert.Contains("ENABLED=0\r\n", text, StringComparison.Ordinal);
-        Assert.Contains("TIME_MULT=1\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("TIME_MULT=1.0\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("SUN_ANGLE=-48.00\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("CLOUD_SPEED=0.200\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("AMBIENT=26\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("ROAD=32\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("ALLOWED_TYRES_OUT=-1\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("SESSION_START=100\r\n", text, StringComparison.Ordinal);
         Assert.Contains("[REPLAY]\r\nFILENAME=\r\nACTIVE=0\r\n", text, StringComparison.Ordinal);
         Assert.Contains("[REMOTE]\r\nACTIVE=0\r\n", text, StringComparison.Ordinal);
     }
@@ -128,6 +134,48 @@ public class IniAndPracticeTests
         Assert.Equal("0", trackDay["SESSION_0"].Get("__SPEED_LIMIT"));
         Assert.Equal("3", trackDay["RACE"].Get("CARS"));
         Assert.Null(trackDay["RACE"].Get("RACE_LAPS"));
+        Assert.Null(race["HEADER"].Get("__CM_FEATURE_SET"));
+        Assert.Null(race["GHOST_CAR"].Get("SECONDS_ADVANTAGE"));
+        Assert.Equal("0", hotlap["GHOST_CAR"].Get("SECONDS_ADVANTAGE"));
+        Assert.Equal("26", hotlap["TEMPERATURE"].Get("AMBIENT"));
+        Assert.Equal("10", hotlap["WIND"].Get("SPEED_KMH_MIN"));
+        Assert.Equal("0", hotlap["WIND"].Get("DIRECTION_DEG"));
+        Assert.Equal("50", hotlap["DYNAMIC_TRACK"].Get("SESSION_TRANSFER"));
+
+        var timeAttack = PracticeRaceIni.Build(shared with { Mode = QuickDriveMode.TimeAttack, DurationMinutes = 20 });
+        Assert.Equal("5", timeAttack["SESSION_0"].Get("TYPE"));
+        Assert.Equal("Time Attack", timeAttack["SESSION_0"].Get("NAME"));
+        Assert.Equal("START", timeAttack["SESSION_0"].Get("SPAWN_SET"));
+        Assert.Equal("20", timeAttack["SESSION_0"].Get("DURATION_MINUTES"));
+        Assert.Equal("1", timeAttack["GROOVE"].Get("MAX_LAPS"));
+        Assert.Equal("2", timeAttack["HEADER"].Get("__CM_FEATURE_SET"));
+
+        var drift = PracticeRaceIni.Build(shared with { Mode = QuickDriveMode.Drift, SpawnSet = "START" });
+        Assert.Equal("6", drift["SESSION_0"].Get("TYPE"));
+        Assert.Equal("Drift Session", drift["SESSION_0"].Get("NAME"));
+        Assert.Equal("START", drift["SESSION_0"].Get("SPAWN_SET"));
+        Assert.Equal("0", drift["RACE"].Get("DRIFT_MODE"));
+        Assert.Equal("1", drift["RACE"].Get("CARS"));
+
+        var drag = PracticeRaceIni.Build(shared with { Mode = QuickDriveMode.Drag, DragMatches = 4, AiLevel = 70 });
+        Assert.Equal("7", drag["SESSION_0"].Get("TYPE"));
+        Assert.Equal("Drag Race", drag["SESSION_0"].Get("NAME"));
+        Assert.Equal("4", drag["SESSION_0"].Get("MATCHES"));
+        Assert.Equal("2", drag["RACE"].Get("CARS"));
+        Assert.Equal("70", drag["RACE"].Get("AI_LEVEL"));
+        Assert.Equal("Bot", drag["CAR_1"].Get("DRIVER_NAME"));
+        Assert.Null(drag["HEADER"].Get("__CM_FEATURE_SET"));
+
+        var weekend = PracticeRaceIni.Build(shared with { Mode = QuickDriveMode.Weekend, PracticeMinutes = 10, QualificationMinutes = 0 });
+        Assert.Equal("Practice", weekend["SESSION_0"].Get("NAME"));
+        Assert.Equal("10", weekend["SESSION_0"].Get("DURATION_MINUTES"));
+        Assert.Equal("1", weekend["SESSION_0"].Get("TYPE"));
+        Assert.Equal("Race", weekend["SESSION_1"].Get("NAME"));
+        Assert.Equal("3", weekend["SESSION_1"].Get("TYPE"));
+        Assert.Equal("3", weekend["SESSION_1"].Get("LAPS"));
+        Assert.False(weekend.Contains("SESSION_2"));
+        Assert.Equal("30", weekend["GROOVE"].Get("MAX_LAPS"));
+        Assert.Equal("3", weekend["RACE"].Get("RACE_LAPS"));
     }
 
     [Fact]
