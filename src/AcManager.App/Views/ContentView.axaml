@@ -59,6 +59,27 @@
         </ListBox.ItemTemplate>
       </ListBox>
       <Button Content="{Binding RemoveTrackText}" Command="{Binding RemoveTrackCommand}" HorizontalAlignment="Left" />
+
+      <TextBlock Text="Repairs" />
+      <TextBlock Text="{Binding RepairNote}" TextWrapping="Wrap" Opacity="0.8" />
+      <Button Content="Check for repairs" Command="{Binding CheckRepairsCommand}" HorizontalAlignment="Left" />
+      <ListBox ItemsSource="{Binding Repairs}" SelectedItem="{Binding SelectedRepair}" MaxHeight="180"
+               IsVisible="{Binding ShowRepairList}">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="content:ContentRepair">
+            <StackPanel Margin="2">
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding Detail}" Opacity="0.65" FontSize="12" TextWrapping="Wrap" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <Button Content="Apply repair" Command="{Binding ApplyRepairCommand}" HorizontalAlignment="Left" />
     </StackPanel>
   </ScrollViewer>
 </UserControl>
