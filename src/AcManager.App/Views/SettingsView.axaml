@@ -1,0 +1,93 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AcManager.App.ViewModels"
+             x:Class="AcManager.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+  <ScrollViewer>
+    <StackPanel MaxWidth="640" HorizontalAlignment="Left" Spacing="10">
+      <TextBlock Text="Settings" FontSize="28" FontWeight="SemiBold" />
+      <TextBlock TextWrapping="Wrap" Opacity="0.8"
+                 Text="Assists, audio, force feedback, and Python apps are written into the prefix cfg folder. Button and axis bindings stay as they are. The game reads these files the next time a session starts." />
+
+      <TextBlock Text="Controls" FontSize="20" FontWeight="SemiBold" Margin="0,8,0,0" />
+      <TextBlock Text="{Binding InputMethod, StringFormat='Input method: {0}'}" />
+      <TextBlock Text="No controllers are saved in controls.ini." IsVisible="{Binding !HasControllers}" Opacity="0.7" />
+      <ItemsControl ItemsSource="{Binding Controllers}" IsVisible="{Binding HasControllers}" />
+      <TextBlock Text="Force feedback %" />
+      <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding ForceFeedback}" Width="160" HorizontalAlignment="Left" />
+      <TextBlock Text="Steering lock" />
+      <NumericUpDown Minimum="40" Maximum="1080" Increment="1" FormatString="0" Value="{Binding SteerLock}" Width="160" HorizontalAlignment="Left" />
+
+      <TextBlock Text="Audio" FontSize="20" FontWeight="SemiBold" Margin="0,8,0,0" />
+      <TextBlock Text="Master %" />
+      <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding Master}" Width="160" HorizontalAlignment="Left" />
+      <TextBlock Text="Engine %" />
+      <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding Engine}" Width="160" HorizontalAlignment="Left" />
+      <TextBlock Text="Tyres %" />
+      <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding Tyres}" Width="160" HorizontalAlignment="Left" />
+      <TextBlock Text="Wind %" />
+      <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding Wind}" Width="160" HorizontalAlignment="Left" />
+      <TextBlock Text="Opponents %" />
+      <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding Opponents}" Width="160" HorizontalAlignment="Left" />
+      <TextBlock Text="Music %" />
+      <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding Music}" Width="160" HorizontalAlignment="Left" />
+      <TextBlock Text="Interface %" />
+      <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding UiSounds}" Width="160" HorizontalAlignment="Left" />
+      <TextBlock Text="Surfaces %" />
+      <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding Surfaces}" Width="160" HorizontalAlignment="Left" />
+      <TextBlock Text="Dirt %" />
+      <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding Dirt}" Width="160" HorizontalAlignment="Left" />
+
+      <TextBlock Text="Assists" FontSize="20" FontWeight="SemiBold" Margin="0,8,0,0" />
+      <CheckBox Content="Ideal line" IsChecked="{Binding IdealLine}" />
+      <CheckBox Content="Auto blip" IsChecked="{Binding AutoBlip}" />
+      <TextBlock Text="Stability control %" />
+      <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding Stability}" Width="160" HorizontalAlignment="Left" />
+      <CheckBox Content="Auto brake" IsChecked="{Binding AutoBrake}" />
+      <CheckBox Content="Automatic shifter" IsChecked="{Binding AutoShifter}" />
+      <TextBlock Text="ABS" />
+      <ComboBox ItemsSource="{Binding AssistLevels}" SelectedItem="{Binding Abs}" HorizontalAlignment="Left" MinWidth="160">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:AssistLevel">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <TextBlock Text="Traction control" />
+      <ComboBox ItemsSource="{Binding AssistLevels}" SelectedItem="{Binding Traction}" HorizontalAlignment="Left" MinWidth="160">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:AssistLevel">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <CheckBox Content="Auto clutch" IsChecked="{Binding AutoClutch}" />
+      <CheckBox Content="Visual damage" IsChecked="{Binding VisualDamage}" />
+      <TextBlock Text="Damage %" />
+      <NumericUpDown Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding Damage}" Width="160" HorizontalAlignment="Left" />
+      <TextBlock Text="Fuel rate" />
+      <NumericUpDown Minimum="0" Maximum="50" Increment="0.1" FormatString="0.##" Value="{Binding FuelRate}" Width="160" HorizontalAlignment="Left" />
+      <TextBlock Text="Tyre wear" />
+      <NumericUpDown Minimum="0" Maximum="5" Increment="0.1" FormatString="0.##" Value="{Binding TyreWear}" Width="160" HorizontalAlignment="Left" />
+      <CheckBox Content="Tyre blankets" IsChecked="{Binding TyreBlankets}" />
+      <TextBlock Text="Slipstream" />
+      <NumericUpDown Minimum="0" Maximum="10" Increment="0.1" FormatString="0.#" Value="{Binding Slipstream}" Width="160" HorizontalAlignment="Left" />
+
+      <TextBlock Text="Python apps" FontSize="20" FontWeight="SemiBold" Margin="0,8,0,0" />
+      <TextBlock Text="No Python apps are installed." IsVisible="{Binding !HasApps}" Opacity="0.7" />
+      <ItemsControl ItemsSource="{Binding Apps}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:PythonAppItem">
+            <CheckBox Content="{Binding Name}" IsChecked="{Binding Active}" Margin="0,2,0,2" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+        <Button Content="Reload" Command="{Binding ReloadCommand}" />
+        <Button Content="Save" Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}" />
+      </StackPanel>
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
