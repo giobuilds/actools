@@ -7,6 +7,8 @@ namespace AcManager.App.ViewModels;
 
 public sealed record FfbMode(string Id, string Name);
 
+public sealed record GrassQuality(int Value, string Name);
+
 public partial class CspViewModel : ObservableObject
 {
     public const string GeneralFile = "general.ini";
@@ -18,6 +20,16 @@ public partial class CspViewModel : ObservableObject
     ];
 
     public IReadOnlyList<FfbMode> FfbModes => Modes;
+
+    public static IReadOnlyList<GrassQuality> GrassLevels { get; } = [
+        new(0, "Very low"),
+        new(1, "Low"),
+        new(2, "Medium"),
+        new(3, "High"),
+        new(4, "Very high"),
+    ];
+
+    public IReadOnlyList<GrassQuality> GrassQualities => GrassLevels;
 
     private string? _documents;
     private string? _gameRoot;
@@ -33,6 +45,21 @@ public partial class CspViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _weatherFxEnabled = true;
+
+    [ObservableProperty]
+    private bool _adjustments = true;
+
+    [ObservableProperty]
+    private decimal _pixelDensity = 100;
+
+    [ObservableProperty]
+    private bool _grass = true;
+
+    [ObservableProperty]
+    private GrassQuality _grassQuality = GrassLevels[2];
+
+    [ObservableProperty]
+    private bool _extraFx;
 
     [ObservableProperty]
     private bool _ffbEnabled;
@@ -82,6 +109,12 @@ public partial class CspViewModel : ObservableObject
             VersionLabel = patch.Label;
             PatchEnabled = ExtensionFlagFile.ReadEnabled(_gameRoot, _documents, GeneralFile);
             WeatherFxEnabled = ExtensionFlagFile.ReadEnabled(_gameRoot, _documents, WeatherFile);
+            var graphics = GraphicsSettingsFile.Read(_gameRoot, _documents);
+            Adjustments = graphics.Adjustments;
+            PixelDensity = graphics.PixelDensity;
+            Grass = graphics.Grass;
+            GrassQuality = Level(graphics.GrassQuality);
+            ExtraFx = graphics.ExtraFx;
 
             var ffb = FfbPostProcessFile.Read(_documents);
             FfbEnabled = ffb.Enabled;
@@ -117,6 +150,12 @@ public partial class CspViewModel : ObservableObject
             if (Installed) {
                 ExtensionFlagFile.WriteEnabled(_documents, GeneralFile, PatchEnabled);
                 ExtensionFlagFile.WriteEnabled(_documents, WeatherFile, WeatherFxEnabled);
+                GraphicsSettingsFile.Write(_documents, new GraphicsSettings(
+                    Adjustments,
+                    (int)PixelDensity,
+                    Grass,
+                    GrassQuality.Value,
+                    ExtraFx));
             }
 
             FfbPostProcessFile.Write(_documents, new FfbPostProcess(
@@ -125,7 +164,7 @@ public partial class CspViewModel : ObservableObject
                 (double)Gamma,
                 Curve));
             Status = Installed
-                ? "Saved Custom Shaders Patch options and force-feedback post-processing. The next session uses them."
+                ? "Saved Custom Shaders Patch options, graphics, and force-feedback post-processing. The next session uses them."
                 : "Saved force-feedback post-processing. The next session uses it.";
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
             Status = ex.Message;
@@ -134,4 +173,7 @@ public partial class CspViewModel : ObservableObject
 
     private static FfbMode Mode(string id) =>
         Modes.First(mode => mode.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    private static GrassQuality Level(int value) =>
+        GrassLevels.First(level => level.Value == Math.Clamp(value, 0, 4));
 }
