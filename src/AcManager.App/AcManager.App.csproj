@@ -38,7 +38,7 @@
     <MSBuild
       Projects="$(AcBridgeProject)"
       Targets="Publish"
-      Properties="Configuration=Release;RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;IncludeNativeLibrariesForSelfExtract=true;DebugType=none;DebugSymbols=false;PublishDir=$(AcBridgePublishDir)" />
+      Properties="Configuration=Release;RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;IncludeNativeLibrariesForSelfExtract=true;PublishDir=$(AcBridgePublishDir)" />
     <Copy
       SourceFiles="$(AcBridgePublishDir)AcBridge.exe"
       DestinationFolder="$(TargetDir)"

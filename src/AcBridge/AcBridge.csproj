@@ -6,6 +6,13 @@
     <Description>Windows helper that reads Assetto Corsa shared memory inside the Proton prefix.</Description>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!--
+      Keep these on this project. Passing them as global properties to the publish
+      rebuilds the referenced libraries without symbol files and deletes the ones
+      the test projects are copying.
+    -->
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../AcManager.Core/AcManager.Core.csproj" />
