@@ -73,6 +73,77 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void Ui_car_json_fields_are_read_for_search()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-car-json-").FullName;
+        try {
+            WriteCar(root, "mod_full", """
+                {
+                  "name": "Full Car '16",
+                  "brand": "Mazda",
+                  "country": " Japan ",
+                  "year": 1991,
+                  "parent": "ks_mazda_mx5",
+                  "author": "Reboot Team",
+                  "tags": ["street", 2],
+                  "specs": { "bhp": 180, "torque": "200nm", "weight": "1050kg", "topspeed": 210, "acceleration": "8.5", "pwratio": "6.77" }
+                }
+                """);
+            WriteCar(root, "ks_listed", """{ "name": "Official Cup", "brand": "Ferrari", "author": "Kunos" }""");
+            WriteCar(root, "mod_claim", """{ "name": "Claimed", "author": "Kunos" }""");
+            WriteCar(root, "mod_kept", """{ "name": "Kept", "author": " Someone " }""");
+            WriteCar(root, "mod_cup", """{ "name": "Cup '16" }""");
+            WriteCar(root, "mod_future", """{ "name": "Future 2026" }""");
+            WriteCar(root, "mod_stringyear", """{ "name": "Old '16", "year": "2005" }""");
+            var brokenUi = Path.Combine(root, "mod_broken", "ui");
+            Directory.CreateDirectory(brokenUi);
+            File.WriteAllText(Path.Combine(brokenUi, "ui_car.json"), """{ "name": "Legacy '99", "brand": "Subaru" """);
+
+            var cars = ContentLibrary.ScanCars(root);
+            var full = cars.Single(car => car.Id == "mod_full");
+            Assert.Equal(["street", "2"], full.Tags);
+            Assert.Equal("Japan", full.Country);
+            Assert.Equal(1991, full.Year);
+            Assert.Equal("ks_mazda_mx5", full.ParentId);
+            Assert.Equal("Reboot Team", full.Author);
+            Assert.Equal("180", full.SpecsBhp);
+            Assert.Equal("200nm", full.SpecsTorque);
+            Assert.Equal("1050kg", full.SpecsWeight);
+            Assert.Equal("210", full.SpecsTopSpeed);
+            Assert.Equal("8.5", full.SpecsAcceleration);
+            Assert.Equal("6.77", full.SpecsPwRatio);
+
+            Assert.Null(cars.Single(car => car.Id == "ks_listed").Author);
+            Assert.Null(cars.Single(car => car.Id == "ks_listed").Country);
+            Assert.Null(cars.Single(car => car.Id == "mod_claim").Author);
+            Assert.Equal("Someone", cars.Single(car => car.Id == "mod_kept").Author);
+            Assert.Equal(2016, cars.Single(car => car.Id == "mod_cup").Year);
+            Assert.Null(cars.Single(car => car.Id == "mod_future").Year);
+            Assert.Equal(2005, cars.Single(car => car.Id == "mod_stringyear").Year);
+            Assert.Equal(1999, cars.Single(car => car.Id == "mod_broken").Year);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void Name_year_follows_the_content_manager_cutoff()
+    {
+        Assert.Equal(2016, CarYear.FromName("Cup '16"));
+        Assert.Equal(2017, CarYear.FromName("Cup '17"));
+        Assert.Equal(1918, CarYear.FromName("Cup '18"));
+        Assert.Equal(1967, CarYear.FromName("Cup '67"));
+        Assert.Equal(1995, CarYear.FromName("Alfa ’95"));
+        Assert.Null(CarYear.FromName("Cup 2016"));
+        Assert.Equal(2014, CarYear.FromId("Road Car 2014"));
+        Assert.Equal(2019, CarYear.FromId("Road Car 2019"));
+        Assert.Equal(1920, CarYear.FromId("Road Car 1920"));
+        Assert.Null(CarYear.FromId("Road Car 1919"));
+        Assert.Null(CarYear.FromId("Road Car 2026"));
+        Assert.Null(CarYear.FromId("Roadx2014"));
+    }
+
+    [Fact]
     public void Preferred_layout_follows_the_content_manager_names()
     {
         var layouts = TrackLayoutOrder.Arrange("monza", false, "monza", [

@@ -50,6 +50,51 @@ public class CarSearchTests
         Assert.True(parsed.Test(Mazda));
     }
 
+    [Fact]
+    public void Json_fields_use_the_content_manager_keys()
+    {
+        var car = new CarSummary(
+            "mod_rx7",
+            "Mazda RX-7",
+            "Mazda",
+            "street",
+            [],
+            ["jdm", "tuned"],
+            "Japan",
+            1997,
+            "ks_mazda_rx7",
+            "Reboot Team",
+            "250",
+            "300nm",
+            "1250",
+            "250",
+            "5.2",
+            "5");
+
+        Assert.True(Matches("tag:jdm", car));
+        Assert.True(Matches("#tuned", car));
+        Assert.False(Matches("tag:drift", car));
+        Assert.True(Matches("country:japan", car));
+        Assert.True(Matches("c:Japan", car));
+        Assert.True(Matches("year:1997", car));
+        Assert.True(Matches("y>1990", car));
+        Assert.False(Matches("year:1997", Mazda));
+        Assert.False(Matches("year>0", Mazda));
+        Assert.True(Matches("parent:ks_mazda_rx7", car));
+        Assert.True(Matches("author:reboot", car));
+        Assert.False(Matches("kunos+", car));
+        Assert.True(Matches("bhp>200", car));
+        Assert.False(Matches("power>300", car));
+        Assert.True(Matches("torque>250", car));
+        Assert.True(Matches("weight:1250", car));
+        Assert.True(Matches("mass<1300", car));
+        Assert.True(Matches("acceleration<6", car));
+        Assert.True(Matches("topspeed>200", car));
+        Assert.True(Matches("speed:250", car));
+        Assert.True(Matches("pw<6", car));
+        Assert.True(Matches("pwratio:5", car));
+    }
+
     private static bool Matches(string query, CarSummary car) =>
         Filter.Create(CarSummaryTester.Instance, query).Test(car);
 }
