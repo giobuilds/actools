@@ -22,7 +22,7 @@ public class AboutPageTests
         await about.CheckAsync();
 
         Assert.Equal("Version 9.0.0 is available.", about.UpdateNote);
-        Assert.Equal("1.5.0", about.Version);
+        Assert.Equal("1.6.0", about.Version);
     }
 
     [Fact]
