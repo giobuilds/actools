@@ -8,6 +8,10 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
+  <!-- The AppImage publish avoids a host libicu. Normal builds keep globalization. -->
+  <PropertyGroup Condition="'$(AppImageBuild)' == 'true'">
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../AcManager.Core/AcManager.Core.csproj" />
     <ProjectReference Include="../AcTools.Core/AcTools.Core.csproj" />
@@ -40,4 +44,15 @@
       DestinationFolder="$(TargetDir)"
       SkipUnchangedFiles="true" />
   </Target>
+  <Target Name="CopyAcBridgeToPublish" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true' and '$(PublishAcBridge)' != 'false' and '$(PublishDir)' != ''">
+    <Copy
+      SourceFiles="$(AcBridgePublishDir)AcBridge.exe"
+      DestinationFolder="$(PublishDir)"
+      SkipUnchangedFiles="true"
+      Condition="Exists('$(AcBridgePublishDir)AcBridge.exe')" />
+  </Target>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\LICENSE.txt" Link="Licenses\LICENSE.txt" />
+    <EmbeddedResource Include="..\..\NOTICE.txt" Link="Licenses\NOTICE.txt" />
+  </ItemGroup>
 </Project>

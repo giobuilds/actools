@@ -18,11 +18,13 @@ public partial class MainWindowViewModel : ObservableObject
         IOnlineDirectory? servers = null,
         ISteamIdLookup? steamIds = null,
         IServerContentInstaller? contentInstaller = null,
-        ISessionBridge? live = null)
+        ISessionBridge? live = null,
+        IReleaseLookup? releases = null)
     {
         var ids = steamIds ?? new SteamLoginUsersLookup();
         Drive = new DriveViewModel(launcher, live);
         Results = new ResultsViewModel();
+        About = new AboutViewModel(releases);
         Video = new VideoViewModel();
         Content = new ContentViewModel();
         Settings = new SettingsViewModel();
@@ -66,6 +68,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     public OnlineViewModel Online { get; }
 
+    public AboutViewModel About { get; }
+
     public string Version => AppVersion.Current;
 
     [ObservableProperty]
@@ -86,6 +90,8 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsCspPage => ReferenceEquals(CurrentPage, Csp);
 
     public bool IsOnlinePage => ReferenceEquals(CurrentPage, Online);
+
+    public bool IsAboutPage => ReferenceEquals(CurrentPage, About);
 
     [RelayCommand]
     private void ShowInstall() => CurrentPage = Install;
@@ -139,6 +145,13 @@ public partial class MainWindowViewModel : ObservableObject
         CurrentPage = Online;
     }
 
+    [RelayCommand]
+    private async Task ShowAbout()
+    {
+        CurrentPage = About;
+        await About.CheckAsync();
+    }
+
     public Task OpenInviteAsync(OnlineInvite invite)
     {
         CurrentPage = Online;
@@ -155,5 +168,6 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(IsSettingsPage));
         OnPropertyChanged(nameof(IsCspPage));
         OnPropertyChanged(nameof(IsOnlinePage));
+        OnPropertyChanged(nameof(IsAboutPage));
     }
 }

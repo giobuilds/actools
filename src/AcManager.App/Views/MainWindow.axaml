@@ -4,7 +4,7 @@
         xmlns:views="using:AcManager.App.Views"
         x:Class="AcManager.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="Content Manager"
+        Title="Content Manager for Linux"
         Width="1100"
         Height="720"
         MinWidth="860"
@@ -35,13 +35,16 @@
     <DataTemplate DataType="vm:OnlineViewModel">
       <views:OnlineView />
     </DataTemplate>
+    <DataTemplate DataType="vm:AboutViewModel">
+      <views:AboutView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <Grid ColumnDefinitions="200,*">
     <Border Grid.Column="0" Padding="16" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" BorderThickness="0,0,1,0">
       <DockPanel>
         <StackPanel DockPanel.Dock="Top" Spacing="4">
-          <TextBlock Text="Content Manager" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <TextBlock Text="Content Manager for Linux" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
           <TextBlock Text="Assetto Corsa" Opacity="0.7" />
           <TextBlock Text="{Binding Version}" Opacity="0.7" Margin="0,0,0,16" />
           <Button Content="Install" Command="{Binding ShowInstallCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
@@ -52,6 +55,7 @@
           <Button Content="Settings" Command="{Binding ShowSettingsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="CSP" Command="{Binding ShowCspCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="Online" Command="{Binding ShowOnlineCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="About" Command="{Binding ShowAboutCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
         </StackPanel>
         <TextBlock VerticalAlignment="Bottom" Opacity="0.6" TextWrapping="Wrap" Text="Sessions launch through Proton." />
       </DockPanel>
