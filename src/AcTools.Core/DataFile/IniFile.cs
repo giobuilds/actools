@@ -26,7 +26,8 @@ namespace AcTools.DataFile {
         /// </summary>
         public static bool OptionKeepComments = false;
 
-        // Sorry about it
+        // Sorry about it. One thread at a time: tests build several files at once.
+        [ThreadStatic]
         private static IniFileMode? _trickIniFileMode;
 
         // I feel like I’ve sort of kicked a puppy right now
