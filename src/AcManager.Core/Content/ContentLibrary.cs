@@ -45,7 +45,7 @@ public static class ContentLibrary
 
         var cars = new List<CarSummary>();
         foreach (var directory in Directory.GetDirectories(carsDirectory)) {
-            if (!IsCarDirectory(directory)) {
+            if (!IsListedCar(directory)) {
                 continue;
             }
 
@@ -69,36 +69,43 @@ public static class ContentLibrary
 
         var tracks = new List<TrackSummary>();
         foreach (var directory in Directory.GetDirectories(tracksDirectory)) {
+            var id = Path.GetFileName(directory);
             var ui = Path.Combine(directory, "ui");
+            if (id.StartsWith("ks_", StringComparison.Ordinal) && !ContainsTrackJson(ui)) {
+                continue;
+            }
+
             if (!Directory.Exists(ui) && !File.Exists(Path.Combine(directory, "models.ini"))) {
                 continue;
             }
 
-            var id = Path.GetFileName(directory);
-            var layouts = new List<TrackLayout>();
-            var mainJson = Path.Combine(ui, "ui_track.json");
-            if (File.Exists(mainJson)) {
-                layouts.Add(new TrackLayout("", NameOf(mainJson, id)));
-            }
-
+            var rootJson = Path.Combine(ui, "ui_track.json");
+            var rootPresent = File.Exists(rootJson);
+            var found = new List<TrackLayoutInfo>();
             if (Directory.Exists(ui)) {
-                foreach (var layoutDirectory in Directory.GetDirectories(ui).OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)) {
+                foreach (var layoutDirectory in Directory.GetDirectories(ui)) {
                     var layoutJson = Path.Combine(layoutDirectory, "ui_track.json");
                     if (!File.Exists(layoutJson)) {
                         continue;
                     }
 
-                    var layoutId = Path.GetFileName(layoutDirectory);
-                    layouts.Add(new TrackLayout(layoutId, NameOf(layoutJson, layoutId)));
+                    var json = ReadUiObject(layoutJson);
+                    found.Add(new TrackLayoutInfo(
+                        Path.GetFileName(layoutDirectory),
+                        StringOf(json, "name"),
+                        NumberOf(json, "priority")));
                 }
             }
 
-            if (layouts.Count == 0) {
-                layouts.Add(new TrackLayout("", id));
-            }
-
-            var display = layouts[0].Name;
-            tracks.Add(new TrackSummary(id, display, layouts));
+            var layouts = TrackLayoutOrder.Arrange(
+                id,
+                rootPresent,
+                rootPresent ? NameOf(rootJson, id) : id,
+                found);
+            var common = layouts.Count > 1
+                ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
+                : null;
+            tracks.Add(new TrackSummary(id, common ?? layouts[0].Name, layouts));
         }
 
         tracks.Sort(static (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
@@ -133,10 +140,65 @@ public static class ContentLibrary
         return list;
     }
 
-    private static bool IsCarDirectory(string directory) =>
-        File.Exists(Path.Combine(directory, "ui", "ui_car.json"))
-        || Directory.Exists(Path.Combine(directory, "data"))
-        || File.Exists(Path.Combine(directory, "data.acd"));
+    private static bool IsListedCar(string directory)
+    {
+        var id = Path.GetFileName(directory);
+        if (id.StartsWith("__cm_tmp_", StringComparison.Ordinal)) {
+            return false;
+        }
+
+        var json = File.Exists(Path.Combine(directory, "ui", "ui_car.json"));
+        if (id.StartsWith("ks_", StringComparison.Ordinal) && !json) {
+            return false;
+        }
+
+        return json
+            || Directory.Exists(Path.Combine(directory, "data"))
+            || File.Exists(Path.Combine(directory, "data.acd"));
+    }
+
+    private static bool ContainsTrackJson(string uiDirectory)
+    {
+        if (!Directory.Exists(uiDirectory)) {
+            return false;
+        }
+
+        try {
+            foreach (var file in Directory.EnumerateFiles(uiDirectory, "*", SearchOption.AllDirectories)) {
+                if (string.Equals(Path.GetFileName(file), "ui_track.json", StringComparison.OrdinalIgnoreCase)) {
+                    return true;
+                }
+            }
+        } catch (IOException) {
+            return false;
+        } catch (UnauthorizedAccessException) {
+            return false;
+        }
+
+        return false;
+    }
+
+    private static double? NumberOf(JsonElement? element, string property)
+    {
+        if (element == null || element.Value.ValueKind != JsonValueKind.Object) {
+            return null;
+        }
+
+        if (!element.Value.TryGetProperty(property, out var value)) {
+            return null;
+        }
+
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number)) {
+            return number;
+        }
+
+        if (value.ValueKind == JsonValueKind.String
+            && double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)) {
+            return parsed;
+        }
+
+        return null;
+    }
 
     private static IReadOnlyList<CarSkin> ScanSkins(string carDirectory)
     {
