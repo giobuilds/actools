@@ -365,7 +365,8 @@ public static class ContentLibrary
         }
 
         var skins = new List<CarSkin>();
-        foreach (var directory in Directory.GetDirectories(skinsDirectory).OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)) {
+        foreach (var directory in Directory.GetDirectories(skinsDirectory)
+                     .OrderBy(static path => Path.GetFileName(path), AlphanumOrder.Instance)) {
             var id = Path.GetFileName(directory);
             var json = ReadUiObject(Path.Combine(directory, "ui_skin.json"));
             var name = StringOf(json, "skinname") ?? id;

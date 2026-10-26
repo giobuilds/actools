@@ -159,6 +159,54 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void Skins_follow_the_content_manager_id_order()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-skins-").FullName;
+        try {
+            WriteCar(root, "mod_skins", """{ "name": "Skins" }""");
+            var skins = Path.Combine(root, "mod_skins", "skins");
+            foreach (var id in new[] { "skin_10", "skin_2", "02_white", "2_red" }) {
+                Directory.CreateDirectory(Path.Combine(skins, id));
+            }
+
+            var car = Assert.Single(ContentLibrary.ScanCars(root));
+            Assert.Equal(["2_red", "02_white", "skin_2", "skin_10"], car.Skins.Select(skin => skin.Id).ToArray());
+            Assert.Equal("2_red", car.DefaultSkin?.Id);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void Alphanum_order_matches_the_content_manager_cases()
+    {
+        AssertBefore("abc", "def");
+        AssertBefore("abc", "abcc");
+        AssertBefore("17-abc", "17-abcc");
+        AssertBefore("17-abcc", "17-abcd");
+        AssertBefore("ab99c", "abc0c");
+        AssertBefore("ab99c", "abc0000c");
+        AssertBefore("test-5-q", "test-15-q");
+        AssertBefore("test-005-q", "test-15-q");
+        AssertBefore("test-15-q", "test-25-q");
+        Assert.Equal(0, AlphanumOrder.Compare("test-15-q", "test-15-q"));
+        AssertBefore("test-15-q-7", "test-15-q-14");
+        AssertBefore("test-15-q-14", "test-15-q-70");
+        AssertBefore(
+            "AC-01 (www.assetto-fr.tk) French Nordschleife Endurance (SOL) (KMR)x:xdn566",
+            "AC-02 (www.assetto-fr.tk) French GT2 (Track Rotation) (SOL) (KMR)x:VAJezh");
+        AssertBefore(
+            "AC-02 (www.assetto-fr.tk) French GT2 (Track Rotation) (SOL) (KMR)x:VAJezh",
+            "AC-03 (www.assetto-fr.tk) French GT3 (Track Rotation) (SOL) (KMR)x:JdWnGb");
+    }
+
+    private static void AssertBefore(string earlier, string later)
+    {
+        Assert.True(AlphanumOrder.Compare(earlier, later) < 0);
+        Assert.True(AlphanumOrder.Compare(later, earlier) > 0);
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));
