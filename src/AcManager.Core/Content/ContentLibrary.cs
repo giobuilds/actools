@@ -33,7 +33,8 @@ public sealed record CarSummary(
     string? SpecsWeight = null,
     string? SpecsTopSpeed = null,
     string? SpecsAcceleration = null,
-    string? SpecsPwRatio = null)
+    string? SpecsPwRatio = null,
+    string? Version = null)
 {
     public string Subtitle
     {
@@ -77,8 +78,8 @@ public static class ContentLibrary
             var id = Path.GetFileName(directory);
             var json = ReadUiObject(Path.Combine(directory, "ui", "ui_car.json"));
             var jsonName = StringOf(json, "name");
-            var name = jsonName ?? id;
-            var yearName = jsonName?.Trim();
+            var trimmedName = jsonName?.Trim();
+            var (name, version) = CarName(id, trimmedName, TextOf(json, "version"));
             cars.Add(new CarSummary(
                 id,
                 name,
@@ -87,7 +88,7 @@ public static class ContentLibrary
                 ScanSkins(directory),
                 TagsOf(json),
                 CountryOf(json),
-                YearOf(json, string.IsNullOrEmpty(yearName) ? null : yearName),
+                YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName),
                 TextOf(json, "parent"),
                 officialCarIds != null && officialCarIds.Contains(id) ? CarAuthors.Kunos : AuthorOf(json),
                 SpecOf(json, "bhp"),
@@ -95,7 +96,8 @@ public static class ContentLibrary
                 SpecOf(json, "weight"),
                 SpecOf(json, "topspeed"),
                 SpecOf(json, "acceleration"),
-                SpecOf(json, "pwratio")));
+                SpecOf(json, "pwratio"),
+                version));
         }
 
         cars.Sort(static (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
@@ -217,6 +219,25 @@ public static class ContentLibrary
         }
 
         return false;
+    }
+
+    private static (string Name, string? Version) CarName(string id, string? trimmedName, string? jsonVersion)
+    {
+        var version = jsonVersion?.Trim();
+        if (string.IsNullOrEmpty(version)) {
+            version = null;
+        }
+
+        if (string.IsNullOrEmpty(trimmedName)) {
+            return (id, version);
+        }
+
+        if (version != null) {
+            return (trimmedName, version);
+        }
+
+        var parsed = CarVersion.FromName(trimmedName, out var stripped);
+        return parsed == null ? (trimmedName, null) : (stripped, parsed);
     }
 
     private static IReadOnlyList<string> TagsOf(JsonElement? element)

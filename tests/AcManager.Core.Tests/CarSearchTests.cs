@@ -98,6 +98,9 @@ public class CarSearchTests
         Assert.True(Matches("speed:250", car));
         Assert.True(Matches("pw<6", car));
         Assert.True(Matches("pwratio:5", car));
+        var versioned = car with { Name = "Cup", Version = "1.23" };
+        Assert.True(Matches("version:1.23", versioned));
+        Assert.False(Matches("v1.23", versioned));
     }
 
     private static bool Matches(string query, CarSummary car) =>

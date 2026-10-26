@@ -57,6 +57,8 @@ public sealed class CarSummaryTester : ITester<CarSummary>
             case "pw":
             case "pwratio":
                 return nameof(CarSummary.SpecsPwRatio);
+            case "version":
+                return nameof(CarSummary.Version);
             case null:
                 return nameof(CarSummary.Name);
             default:
@@ -111,6 +113,8 @@ public sealed class CarSummaryTester : ITester<CarSummary>
             case "pw":
             case "pwratio":
                 return value.Test(car.SpecsPwRatio);
+            case "version":
+                return value.Test(car.Version);
             default:
                 return false;
         }

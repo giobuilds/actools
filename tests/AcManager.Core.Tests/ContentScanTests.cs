@@ -207,6 +207,43 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_trailing_version_leaves_the_car_name()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-car-version-").FullName;
+        try {
+            WriteCar(root, "mod_version", """{ "name": "  Cup Car v1.2.3  " }""");
+            WriteCar(root, "mod_locked", """{ "name": "Locked v9.9", "version": "2" }""");
+            WriteCar(root, "mod_number", """{ "name": "Numbered v9.9", "version": 1.5 }""");
+            WriteCar(root, "mod_plain", """{ "name": "Plain v1" }""");
+            WriteCar(root, "mod_year", """{ "name": "Heritage '16 v2.0" }""");
+
+            var cars = ContentLibrary.ScanCars(root);
+            var versioned = cars.Single(car => car.Id == "mod_version");
+            Assert.Equal("Cup Car", versioned.Name);
+            Assert.Equal("1.2.3", versioned.Version);
+
+            var locked = cars.Single(car => car.Id == "mod_locked");
+            Assert.Equal("Locked v9.9", locked.Name);
+            Assert.Equal("2", locked.Version);
+
+            var numbered = cars.Single(car => car.Id == "mod_number");
+            Assert.Equal("Numbered v9.9", numbered.Name);
+            Assert.Equal("1.5", numbered.Version);
+
+            var plain = cars.Single(car => car.Id == "mod_plain");
+            Assert.Equal("Plain v1", plain.Name);
+            Assert.Null(plain.Version);
+
+            var year = cars.Single(car => car.Id == "mod_year");
+            Assert.Equal("Heritage '16", year.Name);
+            Assert.Equal("2.0", year.Version);
+            Assert.Null(year.Year);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));
