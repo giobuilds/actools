@@ -3,6 +3,8 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>AcManager.App</RootNamespace>
     <AssemblyName>ContentManager</AssemblyName>
+    <Version>1.1.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>

@@ -30,7 +30,8 @@
       <DockPanel>
         <StackPanel DockPanel.Dock="Top" Spacing="4">
           <TextBlock Text="Content Manager" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
-          <TextBlock Text="Assetto Corsa" Opacity="0.7" Margin="0,0,0,16" />
+          <TextBlock Text="Assetto Corsa" Opacity="0.7" />
+          <TextBlock Text="{Binding Version}" Opacity="0.7" Margin="0,0,0,16" />
           <Button Content="Install" Command="{Binding ShowInstallCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="Drive" Command="{Binding ShowDriveCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="Content" Command="{Binding ShowContentCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
