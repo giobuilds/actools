@@ -82,8 +82,12 @@ public class IniAndPracticeTests
         Assert.Contains("ROAD=32\r\n", text, StringComparison.Ordinal);
         Assert.Contains("ALLOWED_TYRES_OUT=-1\r\n", text, StringComparison.Ordinal);
         Assert.Contains("SESSION_START=100\r\n", text, StringComparison.Ordinal);
-        Assert.Contains("[REPLAY]\r\nFILENAME=\r\nACTIVE=0\r\n", text, StringComparison.Ordinal);
-        Assert.Contains("[REMOTE]\r\nACTIVE=0\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("[REPLAY]\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("FILENAME=\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("[REMOTE]\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("ACTIVE=0\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("SERVER_IP=\r\n", text, StringComparison.Ordinal);
+        Assert.Contains("PASSWORD=\r\n", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -133,7 +137,7 @@ public class IniAndPracticeTests
         Assert.Equal("720", trackDay["SESSION_0"].Get("DURATION_MINUTES"));
         Assert.Equal("0", trackDay["SESSION_0"].Get("__SPEED_LIMIT"));
         Assert.Equal("3", trackDay["RACE"].Get("CARS"));
-        Assert.Null(trackDay["RACE"].Get("RACE_LAPS"));
+        Assert.Equal("3", trackDay["RACE"].Get("RACE_LAPS"));
         Assert.Null(race["HEADER"].Get("__CM_FEATURE_SET"));
         Assert.Null(race["GHOST_CAR"].Get("SECONDS_ADVANTAGE"));
         Assert.Equal("0", hotlap["GHOST_CAR"].Get("SECONDS_ADVANTAGE"));

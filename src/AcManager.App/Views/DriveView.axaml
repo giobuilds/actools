@@ -7,7 +7,7 @@
              x:DataType="vm:DriveViewModel">
   <Grid ColumnDefinitions="320,*" ColumnSpacing="20">
     <DockPanel Grid.Column="0">
-      <TextBox DockPanel.Dock="Top" Margin="0,0,0,8" PlaceholderText="Search cars, brand:, class:" Text="{Binding Filter}" />
+      <TextBox DockPanel.Dock="Top" Margin="0,0,0,8" PlaceholderText="Search cars, brand:, class:, tag:, year:, kunos+" Text="{Binding Filter}" />
       <ListBox ItemsSource="{Binding FilteredCars}" SelectedItem="{Binding SelectedCar}">
         <ListBox.ItemsPanel>
           <ItemsPanelTemplate>

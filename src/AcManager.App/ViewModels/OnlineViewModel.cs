@@ -159,7 +159,7 @@ public partial class OnlineViewModel : ObservableObject
 
     public void Reload()
     {
-        _localCars = ContentLibrary.ScanCars(_layout.CarsDirectory);
+        _localCars = ContentLibrary.ScanCars(_layout.CarsDirectory, OfficialCarIds.FromGameRoot(_layout.GameRoot));
         _localTracks = ContentLibrary.ScanTracks(_layout.TracksDirectory);
         RebuildCars();
     }

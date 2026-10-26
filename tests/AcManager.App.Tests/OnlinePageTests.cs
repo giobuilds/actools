@@ -342,11 +342,19 @@ public class OnlinePageTests
         var race = Path.Combine(cfg, "race.ini");
         File.WriteAllText(race, originalRace);
         game = Path.Combine(root, "game");
-        Directory.CreateDirectory(Path.Combine(game, "content", "cars", "ks_mazda_miata", "data"));
-        Directory.CreateDirectory(Path.Combine(game, "content", "cars", "ks_porsche", "data"));
+        WriteListedCar(game, "ks_mazda_miata");
+        WriteListedCar(game, "ks_porsche");
         Directory.CreateDirectory(Path.Combine(game, "content", "tracks"));
         File.WriteAllText(Path.Combine(game, "acs.exe"), "");
         return race;
+    }
+
+    private static void WriteListedCar(string game, string id)
+    {
+        var car = Path.Combine(game, "content", "cars", id);
+        Directory.CreateDirectory(Path.Combine(car, "ui"));
+        Directory.CreateDirectory(Path.Combine(car, "data"));
+        File.WriteAllText(Path.Combine(car, "ui", "ui_car.json"), "{\"name\":\"" + id + "\"}");
     }
 
     private static MainWindowViewModel Open(

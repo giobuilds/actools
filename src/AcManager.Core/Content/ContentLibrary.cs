@@ -8,7 +8,32 @@ namespace AcManager.Core.Content;
 
 public sealed record CarSkin(string Id, string Name, string? PreviewPath);
 
-public sealed record CarSummary(string Id, string Name, string? Brand, string? ClassName, IReadOnlyList<CarSkin> Skins)
+/// <summary>
+/// Content Manager's author name for an official car. A JSON author of this value is ignored
+/// unless <see cref="OfficialCarIds"/> lists the car.
+/// </summary>
+public static class CarAuthors
+{
+    public const string Kunos = "Kunos";
+}
+
+public sealed record CarSummary(
+    string Id,
+    string Name,
+    string? Brand,
+    string? ClassName,
+    IReadOnlyList<CarSkin> Skins,
+    IReadOnlyList<string>? Tags = null,
+    string? Country = null,
+    int? Year = null,
+    string? ParentId = null,
+    string? Author = null,
+    string? SpecsBhp = null,
+    string? SpecsTorque = null,
+    string? SpecsWeight = null,
+    string? SpecsTopSpeed = null,
+    string? SpecsAcceleration = null,
+    string? SpecsPwRatio = null)
 {
     public string Subtitle
     {
@@ -37,7 +62,7 @@ public static class ContentLibrary
 {
     private static readonly string[] PreviewNames = ["preview.jpg", "preview.png", "preview.jpeg"];
 
-    public static IReadOnlyList<CarSummary> ScanCars(string? carsDirectory)
+    public static IReadOnlyList<CarSummary> ScanCars(string? carsDirectory, IReadOnlySet<string>? officialCarIds = null)
     {
         if (string.IsNullOrWhiteSpace(carsDirectory) || !Directory.Exists(carsDirectory)) {
             return [];
@@ -45,16 +70,32 @@ public static class ContentLibrary
 
         var cars = new List<CarSummary>();
         foreach (var directory in Directory.GetDirectories(carsDirectory)) {
-            if (!IsCarDirectory(directory)) {
+            if (!IsListedCar(directory)) {
                 continue;
             }
 
             var id = Path.GetFileName(directory);
             var json = ReadUiObject(Path.Combine(directory, "ui", "ui_car.json"));
-            var name = StringOf(json, "name") ?? id;
-            var brand = StringOf(json, "brand");
-            var className = StringOf(json, "class");
-            cars.Add(new CarSummary(id, name, brand, className, ScanSkins(directory)));
+            var jsonName = StringOf(json, "name");
+            var name = jsonName ?? id;
+            var yearName = jsonName?.Trim();
+            cars.Add(new CarSummary(
+                id,
+                name,
+                StringOf(json, "brand"),
+                StringOf(json, "class"),
+                ScanSkins(directory),
+                TagsOf(json),
+                CountryOf(json),
+                YearOf(json, string.IsNullOrEmpty(yearName) ? null : yearName),
+                TextOf(json, "parent"),
+                officialCarIds != null && officialCarIds.Contains(id) ? CarAuthors.Kunos : AuthorOf(json),
+                SpecOf(json, "bhp"),
+                SpecOf(json, "torque"),
+                SpecOf(json, "weight"),
+                SpecOf(json, "topspeed"),
+                SpecOf(json, "acceleration"),
+                SpecOf(json, "pwratio")));
         }
 
         cars.Sort(static (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
@@ -69,36 +110,43 @@ public static class ContentLibrary
 
         var tracks = new List<TrackSummary>();
         foreach (var directory in Directory.GetDirectories(tracksDirectory)) {
+            var id = Path.GetFileName(directory);
             var ui = Path.Combine(directory, "ui");
+            if (id.StartsWith("ks_", StringComparison.Ordinal) && !ContainsTrackJson(ui)) {
+                continue;
+            }
+
             if (!Directory.Exists(ui) && !File.Exists(Path.Combine(directory, "models.ini"))) {
                 continue;
             }
 
-            var id = Path.GetFileName(directory);
-            var layouts = new List<TrackLayout>();
-            var mainJson = Path.Combine(ui, "ui_track.json");
-            if (File.Exists(mainJson)) {
-                layouts.Add(new TrackLayout("", NameOf(mainJson, id)));
-            }
-
+            var rootJson = Path.Combine(ui, "ui_track.json");
+            var rootPresent = File.Exists(rootJson);
+            var found = new List<TrackLayoutInfo>();
             if (Directory.Exists(ui)) {
-                foreach (var layoutDirectory in Directory.GetDirectories(ui).OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)) {
+                foreach (var layoutDirectory in Directory.GetDirectories(ui)) {
                     var layoutJson = Path.Combine(layoutDirectory, "ui_track.json");
                     if (!File.Exists(layoutJson)) {
                         continue;
                     }
 
-                    var layoutId = Path.GetFileName(layoutDirectory);
-                    layouts.Add(new TrackLayout(layoutId, NameOf(layoutJson, layoutId)));
+                    var json = ReadUiObject(layoutJson);
+                    found.Add(new TrackLayoutInfo(
+                        Path.GetFileName(layoutDirectory),
+                        StringOf(json, "name"),
+                        NumberOf(json, "priority")));
                 }
             }
 
-            if (layouts.Count == 0) {
-                layouts.Add(new TrackLayout("", id));
-            }
-
-            var display = layouts[0].Name;
-            tracks.Add(new TrackSummary(id, display, layouts));
+            var layouts = TrackLayoutOrder.Arrange(
+                id,
+                rootPresent,
+                rootPresent ? NameOf(rootJson, id) : id,
+                found);
+            var common = layouts.Count > 1
+                ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
+                : null;
+            tracks.Add(new TrackSummary(id, common ?? layouts[0].Name, layouts));
         }
 
         tracks.Sort(static (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
@@ -133,10 +181,181 @@ public static class ContentLibrary
         return list;
     }
 
-    private static bool IsCarDirectory(string directory) =>
-        File.Exists(Path.Combine(directory, "ui", "ui_car.json"))
-        || Directory.Exists(Path.Combine(directory, "data"))
-        || File.Exists(Path.Combine(directory, "data.acd"));
+    private static bool IsListedCar(string directory)
+    {
+        var id = Path.GetFileName(directory);
+        if (id.StartsWith("__cm_tmp_", StringComparison.Ordinal)) {
+            return false;
+        }
+
+        var json = File.Exists(Path.Combine(directory, "ui", "ui_car.json"));
+        if (id.StartsWith("ks_", StringComparison.Ordinal) && !json) {
+            return false;
+        }
+
+        return json
+            || Directory.Exists(Path.Combine(directory, "data"))
+            || File.Exists(Path.Combine(directory, "data.acd"));
+    }
+
+    private static bool ContainsTrackJson(string uiDirectory)
+    {
+        if (!Directory.Exists(uiDirectory)) {
+            return false;
+        }
+
+        try {
+            foreach (var file in Directory.EnumerateFiles(uiDirectory, "*", SearchOption.AllDirectories)) {
+                if (string.Equals(Path.GetFileName(file), "ui_track.json", StringComparison.OrdinalIgnoreCase)) {
+                    return true;
+                }
+            }
+        } catch (IOException) {
+            return false;
+        } catch (UnauthorizedAccessException) {
+            return false;
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<string> TagsOf(JsonElement? element)
+    {
+        if (!TryObject(element, out var car)
+            || !car.TryGetProperty("tags", out var tags)
+            || tags.ValueKind != JsonValueKind.Array) {
+            return [];
+        }
+
+        var list = new List<string>();
+        foreach (var item in tags.EnumerateArray()) {
+            var text = item.ValueKind switch {
+                JsonValueKind.String => item.GetString(),
+                JsonValueKind.Number => item.GetRawText(),
+                JsonValueKind.True => "True",
+                JsonValueKind.False => "False",
+                _ => null,
+            };
+            if (text != null) {
+                list.Add(text);
+            }
+        }
+
+        return list;
+    }
+
+    private static string? CountryOf(JsonElement? element)
+    {
+        var country = StringOf(element, "country")?.Trim();
+        return string.IsNullOrEmpty(country) ? null : country;
+    }
+
+    private static int? YearOf(JsonElement? element, string? name)
+    {
+        var year = IntOf(element, "year");
+        if (year.HasValue) {
+            return year;
+        }
+
+        if (string.IsNullOrEmpty(name)) {
+            return null;
+        }
+
+        return CarYear.FromName(name) ?? CarYear.FromId(name);
+    }
+
+    private static string? AuthorOf(JsonElement? element)
+    {
+        var author = TextOf(element, "author")?.Trim();
+        if (string.IsNullOrEmpty(author) || author == CarAuthors.Kunos) {
+            return null;
+        }
+
+        return author;
+    }
+
+    private static string? SpecOf(JsonElement? element, string property)
+    {
+        if (!TryObject(element, out var car)
+            || !car.TryGetProperty("specs", out var specs)
+            || specs.ValueKind != JsonValueKind.Object) {
+            return null;
+        }
+
+        return TextOf(specs, property);
+    }
+
+    private static int? IntOf(JsonElement? element, string property)
+    {
+        var text = TextOf(element, property);
+        if (string.IsNullOrEmpty(text)
+            || !double.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out var number)) {
+            return null;
+        }
+
+        return (int)number;
+    }
+
+    private static string? TextOf(JsonElement? element, string property)
+    {
+        if (!TryObject(element, out var car) || !car.TryGetProperty(property, out var value)) {
+            return null;
+        }
+
+        return TextOf(value);
+    }
+
+    private static string? TextOf(JsonElement value, string property)
+    {
+        if (value.ValueKind != JsonValueKind.Object || !value.TryGetProperty(property, out var child)) {
+            return null;
+        }
+
+        return TextOf(child);
+    }
+
+    private static string? TextOf(JsonElement value)
+    {
+        var text = value.ValueKind switch {
+            JsonValueKind.String => value.GetString(),
+            JsonValueKind.Number => value.GetRawText(),
+            _ => null,
+        };
+        return string.IsNullOrEmpty(text) ? null : text;
+    }
+
+    private static bool TryObject(JsonElement? element, out JsonElement car)
+    {
+        if (element is { ValueKind: JsonValueKind.Object } value) {
+            car = value;
+            return true;
+        }
+
+        car = default;
+        return false;
+    }
+
+    private static double? NumberOf(JsonElement? element, string property)
+    {
+        if (element == null || element.Value.ValueKind != JsonValueKind.Object) {
+            return null;
+        }
+
+        if (!element.Value.TryGetProperty(property, out var value)) {
+            return null;
+        }
+
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number)) {
+            return number;
+        }
+
+        if (value.ValueKind == JsonValueKind.String
+            && double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)) {
+            return parsed;
+        }
+
+        return null;
+    }
 
     private static IReadOnlyList<CarSkin> ScanSkins(string carDirectory)
     {
@@ -146,7 +365,8 @@ public static class ContentLibrary
         }
 
         var skins = new List<CarSkin>();
-        foreach (var directory in Directory.GetDirectories(skinsDirectory).OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)) {
+        foreach (var directory in Directory.GetDirectories(skinsDirectory)
+                     .OrderBy(static path => Path.GetFileName(path), AlphanumOrder.Instance)) {
             var id = Path.GetFileName(directory);
             var json = ReadUiObject(Path.Combine(directory, "ui_skin.json"));
             var name = StringOf(json, "skinname") ?? id;
