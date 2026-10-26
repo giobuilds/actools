@@ -55,6 +55,48 @@ public class CspSettingsTests
     }
 
     [Fact]
+    public void Write_saves_graphics_overrides_beside_the_shipped_config()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-csp-graphics-").FullName;
+        try {
+            var game = Path.Combine(root, "game");
+            var documents = Path.Combine(root, "documents");
+            var config = Path.Combine(game, "extension", "config");
+            Directory.CreateDirectory(config);
+            const string shippedAdjustments = "[BASIC]\r\nENABLED=1 ; Active; 1 or 0\r\n\r\n[RENDER_SCALE]\r\nSCALE=1 ; Density\r\n";
+            const string shippedGrass = "[BASIC]\r\nENABLED=1\r\nQUALITY=2\r\nSKIP_LOADING_OLD_MESHES=1\r\n";
+            const string shippedExtra = "[BASIC]\r\nENABLED=0\r\n";
+            File.WriteAllText(Path.Combine(config, GraphicsSettings.AdjustmentsFile), shippedAdjustments);
+            File.WriteAllText(Path.Combine(config, GraphicsSettings.GrassFile), shippedGrass);
+            File.WriteAllText(Path.Combine(config, GraphicsSettings.ExtraFxFile), shippedExtra);
+            var userAdjustments = ExtensionFlagFile.UserPath(documents, GraphicsSettings.AdjustmentsFile);
+            Directory.CreateDirectory(Path.GetDirectoryName(userAdjustments)!);
+            File.WriteAllText(userAdjustments, "[RENDER_SCALE]\r\nSCALE=1\t\t\t; Density\r\nSCREENSHOTS_SCALE=1\r\n");
+
+            var loaded = GraphicsSettingsFile.Read(game, documents);
+            Assert.Equal(new GraphicsSettings(true, 100, true, 2, false), loaded);
+
+            GraphicsSettingsFile.Write(documents, loaded with { Adjustments = false, PixelDensity = 50, Grass = false, GrassQuality = 9, ExtraFx = true });
+
+            Assert.Equal(shippedAdjustments, File.ReadAllText(Path.Combine(config, GraphicsSettings.AdjustmentsFile)));
+            Assert.Equal(shippedGrass, File.ReadAllText(Path.Combine(config, GraphicsSettings.GrassFile)));
+            Assert.Equal(shippedExtra, File.ReadAllText(Path.Combine(config, GraphicsSettings.ExtraFxFile)));
+            Assert.Equal(
+                "[RENDER_SCALE]\r\nSCALE=0.5\t\t\t; Density\r\nSCREENSHOTS_SCALE=1\r\n\r\n[BASIC]\r\nENABLED=0\r\n",
+                File.ReadAllText(userAdjustments));
+            Assert.Equal(
+                "[BASIC]\r\nENABLED=0\r\nQUALITY=4\r\n",
+                File.ReadAllText(ExtensionFlagFile.UserPath(documents, GraphicsSettings.GrassFile)));
+            Assert.Equal(
+                "[BASIC]\r\nENABLED=1\r\n",
+                File.ReadAllText(ExtensionFlagFile.UserPath(documents, GraphicsSettings.ExtraFxFile)));
+            Assert.Equal(new GraphicsSettings(false, 50, false, 4, true), GraphicsSettingsFile.Read(game, documents));
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Write_updates_force_feedback_post_processing_and_keeps_the_header()
     {
         var documents = Directory.CreateTempSubdirectory("actools-ffb-").FullName;

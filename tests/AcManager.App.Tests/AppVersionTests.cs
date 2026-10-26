@@ -8,6 +8,6 @@ public class AppVersionTests
     [Fact]
     public void Current_is_the_app_version()
     {
-        Assert.Equal("1.2.0", AppVersion.Current);
+        Assert.Equal("1.3.0", AppVersion.Current);
     }
 }

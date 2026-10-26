@@ -7,11 +7,26 @@
     <StackPanel MaxWidth="640" HorizontalAlignment="Left" Spacing="10">
       <TextBlock Text="Custom Shaders Patch" FontSize="28" FontWeight="SemiBold" />
       <TextBlock TextWrapping="Wrap" Opacity="0.8"
-                 Text="The version is read from the game folder. Patch enablement and Weather FX are saved in the prefix cfg/extension folder. Force-feedback post-processing is saved in cfg/ff_post_process.ini. The game reads these the next time a session starts." />
+                 Text="The version is read from the game folder. Patch enablement, Weather FX, and graphics are saved in the prefix cfg/extension folder. Force-feedback post-processing is saved in cfg/ff_post_process.ini. The game reads these the next time a session starts." />
 
       <TextBlock Text="{Binding VersionLabel, StringFormat='Installed: {0}'}" />
       <CheckBox Content="Custom Shaders Patch" IsChecked="{Binding PatchEnabled}" IsEnabled="{Binding Installed}" />
       <CheckBox Content="Weather FX" IsChecked="{Binding WeatherFxEnabled}" IsEnabled="{Binding Installed}" />
+
+      <TextBlock Text="Graphics" FontSize="20" FontWeight="SemiBold" Margin="0,8,0,0" />
+      <CheckBox Content="Graphics adjustments" IsChecked="{Binding Adjustments}" IsEnabled="{Binding Installed}" />
+      <TextBlock Text="Pixel density %" />
+      <NumericUpDown Minimum="10" Maximum="100" Increment="1" FormatString="0" Value="{Binding PixelDensity}" IsEnabled="{Binding Installed}" Width="160" HorizontalAlignment="Left" />
+      <CheckBox Content="Grass" IsChecked="{Binding Grass}" IsEnabled="{Binding Installed}" />
+      <TextBlock Text="Grass quality" />
+      <ComboBox ItemsSource="{Binding GrassQualities}" SelectedItem="{Binding GrassQuality}" IsEnabled="{Binding Installed}" HorizontalAlignment="Left" MinWidth="160">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:GrassQuality">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <CheckBox Content="Extra FX" IsChecked="{Binding ExtraFx}" IsEnabled="{Binding Installed}" />
 
       <TextBlock Text="Force feedback post-processing" FontSize="20" FontWeight="SemiBold" Margin="0,8,0,0" />
       <CheckBox Content="Enabled" IsChecked="{Binding FfbEnabled}" />

@@ -32,8 +32,12 @@ public class CspPageTests
             File.WriteAllText(Path.Combine(config, "data_manifest.ini"), "[VERSION]\r\nSHADERS_PATCH=0.2.11\r\nSHADERS_PATCH_BUILD=3465\r\n");
             const string general = "[BASIC]\r\nENABLED=1 ; Active; 1 or 0\r\n";
             const string weather = "[BASIC]\r\nENABLED=1 ; Active (set to 0 to disable WeatherFX); 1 or 0\r\nCONTROLLER=sol\r\n";
+            const string adjustments = "[BASIC]\r\nENABLED=1 ; Active; 1 or 0\r\n\r\n[RENDER_SCALE]\r\nSCALE=1 ; Density\r\n";
+            const string grass = "[BASIC]\r\nENABLED=1\r\nQUALITY=2\r\nSKIP_LOADING_OLD_MESHES=1\r\n";
             File.WriteAllText(Path.Combine(config, "general.ini"), general);
             File.WriteAllText(Path.Combine(config, "weather_fx.ini"), weather);
+            File.WriteAllText(Path.Combine(config, GraphicsSettings.AdjustmentsFile), adjustments);
+            File.WriteAllText(Path.Combine(config, GraphicsSettings.GrassFile), grass);
 
             var window = new MainWindowViewModel(
                 new InstallSettingsStore(new XdgAppPaths(Path.Combine(root, "config"))),
@@ -44,6 +48,11 @@ public class CspPageTests
             Assert.Equal("0.2.11 (build 3465)", window.Csp.VersionLabel);
             Assert.True(window.Csp.PatchEnabled);
             Assert.True(window.Csp.WeatherFxEnabled);
+            Assert.True(window.Csp.Adjustments);
+            Assert.Equal(100m, window.Csp.PixelDensity);
+            Assert.Equal(2, window.Csp.GrassQuality.Value);
+            Assert.Equal("Medium", window.Csp.GrassQuality.Name);
+            Assert.False(window.Csp.ExtraFx);
             Assert.False(window.Csp.FfbEnabled);
             Assert.Equal(FfbPostProcess.GammaType, window.Csp.FfbMode.Id);
             Assert.Equal(0.5m, window.Csp.Gamma);
@@ -51,12 +60,20 @@ public class CspPageTests
             Assert.StartsWith("Custom Shaders Patch ", window.Csp.Status, StringComparison.Ordinal);
 
             window.Csp.WeatherFxEnabled = false;
+            window.Csp.PixelDensity = 50;
+            window.Csp.GrassQuality = CspViewModel.GrassLevels[3];
+            window.Csp.ExtraFx = true;
             window.Csp.FfbEnabled = true;
             window.Csp.Gamma = 0.8m;
             window.Csp.SaveCommand.Execute(null);
 
             Assert.Equal(general, File.ReadAllText(Path.Combine(config, "general.ini")));
             Assert.Equal(weather, File.ReadAllText(Path.Combine(config, "weather_fx.ini")));
+            Assert.Equal(adjustments, File.ReadAllText(Path.Combine(config, GraphicsSettings.AdjustmentsFile)));
+            Assert.Equal(grass, File.ReadAllText(Path.Combine(config, GraphicsSettings.GrassFile)));
+            Assert.Contains("SCALE=0.5", File.ReadAllText(ExtensionFlagFile.UserPath(documents, GraphicsSettings.AdjustmentsFile)), StringComparison.Ordinal);
+            Assert.Contains("QUALITY=3", File.ReadAllText(ExtensionFlagFile.UserPath(documents, GraphicsSettings.GrassFile)), StringComparison.Ordinal);
+            Assert.Contains("ENABLED=1", File.ReadAllText(ExtensionFlagFile.UserPath(documents, GraphicsSettings.ExtraFxFile)), StringComparison.Ordinal);
             Assert.Equal("[RACE]\r\nMODEL=stay\r\n", File.ReadAllText(race));
             Assert.Contains("ENABLED=0", File.ReadAllText(ExtensionFlagFile.UserPath(documents, CspViewModel.WeatherFile)), StringComparison.Ordinal);
             Assert.Contains("ENABLED=1", File.ReadAllText(ExtensionFlagFile.UserPath(documents, CspViewModel.GeneralFile)), StringComparison.Ordinal);
