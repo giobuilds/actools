@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 using AcManager.Core.Content;
 using AcManager.Core.Sessions;
 using AcTools.Core.Sessions;
@@ -6,6 +7,7 @@ using AcTools.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using StringBasedFilter;
 
 namespace AcManager.App.ViewModels;
 
@@ -210,25 +212,24 @@ public partial class DriveViewModel : ObservableObject
     {
         var selectedId = SelectedCar?.Id;
         FilteredCars.Clear();
+        var query = Filter;
+        var active = !string.IsNullOrWhiteSpace(query);
+        IFilter<CarSummary>? parsed = null;
+        if (active) {
+            try {
+                parsed = StringBasedFilter.Filter.Create(CarSummaryTester.Instance, query);
+            } catch (Exception ex) when (ex is ArgumentException or RegexParseException) {
+                parsed = null;
+            }
+        }
+
         foreach (var car in _cars) {
-            if (Matches(car, Filter)) {
+            if (!active || (parsed != null && parsed.Test(car))) {
                 FilteredCars.Add(car);
             }
         }
 
         SelectedCar = FilteredCars.FirstOrDefault(car => car.Id == selectedId) ?? FilteredCars.FirstOrDefault();
-    }
-
-    private static bool Matches(CarSummary car, string filter)
-    {
-        if (string.IsNullOrWhiteSpace(filter)) {
-            return true;
-        }
-
-        return car.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
-            || car.Id.Contains(filter, StringComparison.OrdinalIgnoreCase)
-            || (car.Brand?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (car.ClassName?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false);
     }
 
     [RelayCommand]
