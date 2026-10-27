@@ -55,6 +55,37 @@ public sealed class ServerContentInstaller : IServerContentInstaller, IDisposabl
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("ContentManager");
     }
 
+    /// <summary>
+    /// Lists and extracts a 7z into a directory.
+    /// The caller copies the files. Shader and surface rewrites do not run here.
+    /// A non-null return is why extraction stopped.
+    /// </summary>
+    public static async Task<string?> ExtractToDirectoryAsync(
+        string archivePath,
+        string destination,
+        CancellationToken cancellationToken = default)
+    {
+        using var installer = new ServerContentInstaller();
+        return await installer.ExtractAsync(archivePath, destination, cancellationToken).ConfigureAwait(false);
+    }
+
+    public static bool HasSevenZipSignature(string archivePath)
+    {
+        using var stream = File.OpenRead(archivePath);
+        var signature = new byte[SevenZipSignature.Length];
+        var got = 0;
+        while (got < signature.Length) {
+            var read = stream.Read(signature, got, signature.Length - got);
+            if (read == 0) {
+                return false;
+            }
+
+            got += read;
+        }
+
+        return signature.AsSpan().SequenceEqual(SevenZipSignature);
+    }
+
     public static string? FindSevenZip()
     {
         foreach (var candidate in new[] { "/usr/bin/7z", "/usr/bin/7zz", "/usr/bin/7za" }) {

@@ -36,7 +36,8 @@ public sealed record CarSummary(
     string? SpecsPwRatio = null,
     string? Version = null,
     string? Description = null,
-    string? Url = null)
+    string? Url = null,
+    double MaxRpm = 0)
 {
     public string Subtitle
     {
@@ -60,7 +61,14 @@ public sealed record TrackLayout(
     string? City = null,
     string? SpecsLength = null,
     string? SpecsPitboxes = null,
-    string? SpecsWidth = null);
+    string? SpecsWidth = null,
+    GeoTags? GeoTags = null,
+    string? Country = null,
+    int? Year = null,
+    IReadOnlyList<string>? Tags = null,
+    string? Author = null,
+    string? Url = null,
+    double Priority = 0);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
@@ -69,14 +77,35 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
     /// <summary>City of the main layout. Content Manager stores city on each layout.</summary>
     public string? City => Layouts.Count == 0 ? null : Layouts[0].City;
 
-    /// <summary>Length text of the main layout. The kilometre conversion stays unread.</summary>
+    /// <summary>Length text of the main layout. Search converts this text to kilometres.</summary>
     public string? SpecsLength => Layouts.Count == 0 ? null : Layouts[0].SpecsLength;
 
-    /// <summary>Pit box text of the main layout. The numeric parse stays unread.</summary>
+    /// <summary>Pit box text of the main layout. Search reads the number in the text. A missing value is not 2.</summary>
     public string? SpecsPitboxes => Layouts.Count == 0 ? null : Layouts[0].SpecsPitboxes;
 
-    /// <summary>Width text of the main layout. The metre conversion stays unread.</summary>
+    /// <summary>Width text of the main layout. Search converts this text to metres.</summary>
     public string? SpecsWidth => Layouts.Count == 0 ? null : Layouts[0].SpecsWidth;
+
+    /// <summary>Geotags of the main layout. A missing or invalid pair can come from Track Params.ini.</summary>
+    public GeoTags? GeoTags => Layouts.Count == 0 ? null : Layouts[0].GeoTags;
+
+    /// <summary>Country of the main layout. A mapped tag fills this when the JSON country is missing.</summary>
+    public string? Country => Layouts.Count == 0 ? null : Layouts[0].Country;
+
+    /// <summary>Year of the main layout. A missing JSON year can come from Years.json by track id.</summary>
+    public int? Year => Layouts.Count == 0 ? null : Layouts[0].Year;
+
+    /// <summary>Tags of the main layout. A mapped tag can also fill the country.</summary>
+    public IReadOnlyList<string> Tags => Layouts.Count == 0 ? [] : Layouts[0].Tags ?? [];
+
+    /// <summary>Author of the main layout. A listed track or layout id is Kunos. A <c>ks_</c> id that is not listed stays empty.</summary>
+    public string? Author => Layouts.Count == 0 ? null : Layouts[0].Author;
+
+    /// <summary>URL of the main layout. A blank value stays empty.</summary>
+    public string? Url => Layouts.Count == 0 ? null : Layouts[0].Url;
+
+    /// <summary>Priority of the main layout. A missing priority is 0.</summary>
+    public double Priority => Layouts.Count == 0 ? 0d : Layouts[0].Priority;
 }
 
 public sealed record WeatherSummary(string Id, string Name);
@@ -109,8 +138,8 @@ public static class ContentLibrary
                 StringOf(json, "class"),
                 ScanSkins(directory),
                 TagsOf(json),
-                CountryOf(json),
-                YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName),
+                CarCountryOf(json),
+                YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName, ContentYears.ForCar(id)),
                 TextOf(json, "parent"),
                 officialCarIds != null && officialCarIds.Contains(id) ? CarAuthors.Kunos : AuthorOf(json),
                 SpecOf(json, "bhp"),
@@ -121,7 +150,8 @@ public static class ContentLibrary
                 SpecOf(json, "pwratio"),
                 version,
                 ContentDescription.Decode(TextOf(json, "description")),
-                UrlOf(json)));
+                UrlOf(json),
+                MaxRpmOf(json)));
         }
 
         cars.Sort(static (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
@@ -158,21 +188,25 @@ public static class ContentLibrary
 
                     var json = ReadUiObject(layoutJson);
                     var layoutId = Path.GetFileName(layoutDirectory);
-                    var (layoutName, layoutVersion) = SplitVersion(
-                        layoutId,
-                        StringOf(json, "name")?.Trim(),
-                        TextOf(json, "version"));
+                    var trimmedName = StringOf(json, "name")?.Trim();
+                    var (layoutName, layoutVersion) = SplitVersion(layoutId, trimmedName, TextOf(json, "version"));
                     var (version, description) = DescriptionVersion(layoutVersion, json);
                     found.Add(new TrackLayoutInfo(
                         layoutId,
                         layoutName,
-                        NumberOf(json, "priority"),
+                        PriorityOf(json),
                         version,
                         description,
                         TextOf(json, "city"),
                         LengthOf(json),
                         PitboxesOf(json),
-                        WidthOf(json)));
+                        WidthOf(json),
+                        GeoTagsOf(id, json),
+                        CountryOf(json),
+                        YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName, ContentYears.ForTrack(id)),
+                        TagsOf(json),
+                        TrackAuthorOf(json, id, layoutId),
+                        UrlOf(json)));
                 }
             }
 
@@ -183,14 +217,29 @@ public static class ContentLibrary
             string? rootLength;
             string? rootPitboxes;
             string? rootWidth;
+            GeoTags? rootGeoTags;
+            string? rootCountry;
+            int? rootYear;
+            IReadOnlyList<string>? rootTags;
+            string? rootAuthor;
+            string? rootUrl;
+            double rootPriority;
             if (rootPresent) {
                 var rootElement = ReadUiObject(rootJson);
-                (rootName, rootVersion) = SplitVersion(id, StringOf(rootElement, "name")?.Trim(), TextOf(rootElement, "version"));
+                var trimmedName = StringOf(rootElement, "name")?.Trim();
+                (rootName, rootVersion) = SplitVersion(id, trimmedName, TextOf(rootElement, "version"));
                 (rootVersion, rootDescription) = DescriptionVersion(rootVersion, rootElement);
                 rootCity = TextOf(rootElement, "city");
                 rootLength = LengthOf(rootElement);
                 rootPitboxes = PitboxesOf(rootElement);
                 rootWidth = WidthOf(rootElement);
+                rootGeoTags = GeoTagsOf(id, rootElement);
+                rootCountry = CountryOf(rootElement);
+                rootYear = YearOf(rootElement, string.IsNullOrEmpty(trimmedName) ? null : trimmedName, ContentYears.ForTrack(id));
+                rootTags = TagsOf(rootElement);
+                rootAuthor = TrackAuthorOf(rootElement, id, "");
+                rootUrl = UrlOf(rootElement);
+                rootPriority = PriorityOf(rootElement);
             } else {
                 rootName = id;
                 rootVersion = null;
@@ -199,6 +248,13 @@ public static class ContentLibrary
                 rootLength = null;
                 rootPitboxes = null;
                 rootWidth = null;
+                rootGeoTags = null;
+                rootCountry = null;
+                rootYear = null;
+                rootTags = null;
+                rootAuthor = null;
+                rootUrl = null;
+                rootPriority = 0d;
             }
 
             var layouts = TrackLayoutOrder.Arrange(
@@ -211,7 +267,14 @@ public static class ContentLibrary
                 rootCity,
                 rootLength,
                 rootPitboxes,
-                rootWidth);
+                rootWidth,
+                rootGeoTags,
+                rootCountry,
+                rootYear,
+                rootTags,
+                rootAuthor,
+                rootUrl,
+                rootPriority);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
@@ -340,6 +403,57 @@ public static class ContentLibrary
     /// </summary>
     private static string? WidthOf(JsonElement? element) => TextOf(element, "width")?.Trim();
 
+    /// <summary>
+    /// JSON geotags win when they parse. Otherwise the track folder id is looked up in
+    /// <c>Track Params.ini</c>. Every layout of that track uses the same section.
+    /// </summary>
+    private static GeoTags? GeoTagsOf(string trackId, JsonElement? element)
+    {
+        var tags = GeoTags.Read(element);
+        if (tags is { IsEmptyOrInvalid: false }) {
+            return tags;
+        }
+
+        return TrackCoordinates.ForTrack(trackId) ?? tags;
+    }
+
+    /// <summary>
+    /// <c>AcJsonObjectNew.LoadCountry</c>. A present country is normalized with
+    /// <c>CountryFromTag</c>. When that key is missing, the first mapped tag is used.
+    /// An all-space country stays empty.
+    /// </summary>
+    private static string? CountryOf(JsonElement? element)
+    {
+        var value = TextOf(element, "country")?.Trim();
+        if (value != null) {
+            return CountryNames.FromTag(value) ?? value;
+        }
+
+        foreach (var tag in TagsOf(element)) {
+            var country = CountryNames.FromTag(tag);
+            if (country != null) {
+                return country;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// <c>CarObject.LoadData</c> fills a missing country from the brand.
+    /// A country that is already set, including one taken from a tag, stays.
+    /// </summary>
+    private static string? CarCountryOf(JsonElement? element)
+    {
+        var country = CountryOf(element);
+        if (country != null) {
+            return country;
+        }
+
+        var brand = StringOf(element, "brand");
+        return string.IsNullOrEmpty(brand) ? null : CountryNames.FromBrand(brand);
+    }
+
     private static IReadOnlyList<string> TagsOf(JsonElement? element)
     {
         if (!TryObject(element, out var car)
@@ -365,17 +479,20 @@ public static class ContentLibrary
         return list;
     }
 
-    private static string? CountryOf(JsonElement? element)
-    {
-        var country = StringOf(element, "country")?.Trim();
-        return string.IsNullOrEmpty(country) ? null : country;
-    }
-
-    private static int? YearOf(JsonElement? element, string? name)
+    /// <summary>
+    /// JSON year first, then <paramref name="listed"/> from <c>Years.json</c>, then the year
+    /// at the end of <paramref name="name"/>. <paramref name="name"/> is the trimmed JSON name
+    /// before a trailing version is removed. Track layouts share the track folder id.
+    /// </summary>
+    private static int? YearOf(JsonElement? element, string? name, int? listed)
     {
         var year = IntOf(element, "year");
         if (year.HasValue) {
             return year;
+        }
+
+        if (listed.HasValue) {
+            return listed;
         }
 
         if (string.IsNullOrEmpty(name)) {
@@ -395,10 +512,66 @@ public static class ContentLibrary
         return author;
     }
 
+    /// <summary>
+    /// <c>AcJsonObjectNew.LoadVersionInfo</c>. A listed id is <c>Kunos</c> even when the JSON
+    /// names someone else. Otherwise the text is trimmed and <c>Kunos</c> becomes empty.
+    /// An empty layout id is the root <c>ui_track.json</c> and uses the track list.
+    /// A layout folder uses <c>track/layout</c>. A <c>ks_</c> id that is not listed stays unofficial.
+    /// </summary>
+    private static string? TrackAuthorOf(JsonElement? element, string trackId, string layoutId)
+    {
+        if (OfficialTracks.IsOfficial(trackId, layoutId)) {
+            return CarAuthors.Kunos;
+        }
+
+        var author = TextOf(element, "author")?.Trim();
+        if (author == null || author == CarAuthors.Kunos) {
+            return null;
+        }
+
+        return author;
+    }
+
+    /// <summary>
+    /// <c>AcJsonObjectNew.Url</c> trims the JSON text and clears a blank value.
+    /// </summary>
     private static string? UrlOf(JsonElement? element)
     {
         var url = TextOf(element, "url")?.Trim();
         return string.IsNullOrWhiteSpace(url) ? null : url;
+    }
+
+    /// <summary>
+    /// <c>CarObject.GetRpmMaxValue</c> reads the highest RPM on the torque curve.
+    /// LoadData always builds that curve, so a missing or empty <c>torqueCurve</c> contributes 0.
+    /// The power curve stays unread for this value.
+    /// </summary>
+    private static double MaxRpmOf(JsonElement? element)
+    {
+        if (!TryObject(element, out var car)
+            || !car.TryGetProperty("torqueCurve", out var curve)
+            || curve.ValueKind != JsonValueKind.Array) {
+            return 0d;
+        }
+
+        double? max = null;
+        foreach (var entry in curve.EnumerateArray()) {
+            if (entry.ValueKind != JsonValueKind.Array || entry.GetArrayLength() != 2) {
+                continue;
+            }
+
+            var xText = TextOf(entry[0]);
+            var yText = TextOf(entry[1]);
+            if (!CarSpecQuery.TryParse(xText, out var x) || !CarSpecQuery.TryParse(yText, out _)) {
+                continue;
+            }
+
+            if (max == null || x > max) {
+                max = x;
+            }
+        }
+
+        return max ?? 0d;
     }
 
     private static string? SpecOf(JsonElement? element, string property)
@@ -462,6 +635,12 @@ public static class ContentLibrary
         return false;
     }
 
+    /// <summary>
+    /// <c>TrackObjectBase.LoadData</c> reads <c>priority</c> with <c>GetDoubleValueOnly</c>.
+    /// A missing or unreadable value becomes 0.
+    /// </summary>
+    private static double PriorityOf(JsonElement? element) => NumberOf(element, "priority") ?? 0d;
+
     private static double? NumberOf(JsonElement? element, string property)
     {
         if (element == null || element.Value.ValueKind != JsonValueKind.Object) {
@@ -477,7 +656,7 @@ public static class ContentLibrary
         }
 
         if (value.ValueKind == JsonValueKind.String
-            && double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)) {
+            && double.TryParse(value.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)) {
             return parsed;
         }
 

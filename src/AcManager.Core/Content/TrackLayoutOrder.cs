@@ -14,7 +14,13 @@ public readonly record struct TrackLayoutInfo(
     string? City = null,
     string? SpecsLength = null,
     string? SpecsPitboxes = null,
-    string? SpecsWidth = null);
+    string? SpecsWidth = null,
+    GeoTags? GeoTags = null,
+    string? Country = null,
+    int? Year = null,
+    IReadOnlyList<string>? Tags = null,
+    string? Author = null,
+    string? Url = null);
 
 /// <summary>
 /// Picks the main track layout the way <c>TrackObject.GetLayouts</c> does when the
@@ -32,7 +38,14 @@ public static class TrackLayoutOrder
         string? rootCity = null,
         string? rootLength = null,
         string? rootPitboxes = null,
-        string? rootWidth = null)
+        string? rootWidth = null,
+        GeoTags? rootGeoTags = null,
+        string? rootCountry = null,
+        int? rootYear = null,
+        IReadOnlyList<string>? rootTags = null,
+        string? rootAuthor = null,
+        string? rootUrl = null,
+        double rootPriority = 0)
     {
         if (rootPresent) {
             var extras = layouts
@@ -48,7 +61,14 @@ public static class TrackLayoutOrder
                 rootCity,
                 rootLength,
                 rootPitboxes,
-                rootWidth));
+                rootWidth,
+                rootGeoTags,
+                rootCountry,
+                rootYear,
+                rootTags,
+                rootAuthor,
+                rootUrl,
+                rootPriority));
             return extras;
         }
 
@@ -111,7 +131,14 @@ public static class TrackLayoutOrder
             layout.City,
             layout.SpecsLength,
             layout.SpecsPitboxes,
-            layout.SpecsWidth);
+            layout.SpecsWidth,
+            layout.GeoTags,
+            layout.Country,
+            layout.Year,
+            layout.Tags,
+            layout.Author,
+            layout.Url,
+            layout.Priority ?? 0d);
 
     private static string Preferred(string trackId, IReadOnlyList<TrackLayoutInfo> layouts)
     {

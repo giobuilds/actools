@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 using AcManager.Core.Content;
@@ -278,6 +279,72 @@ public class ContentArchiveTests
     }
 
     [Fact]
+    public async Task Install_makes_a_7z_track_surface_pitch_safe_for_the_original_game()
+    {
+        var game = NewGameRoot();
+        try {
+            var source = Path.Combine(game, "src");
+            Directory.CreateDirectory(Path.Combine(source, "cup", "ui"));
+            Directory.CreateDirectory(Path.Combine(source, "cup", "data"));
+            File.WriteAllText(Path.Combine(source, "cup", "ui", "ui_track.json"), "{\"name\":\"Cup\"}");
+            File.WriteAllText(
+                Path.Combine(source, "cup", "data", "surfaces.ini"),
+                "[SURFACE_0]\r\nKEY=ROAD\r\nWAV_PITCH=extended-0\r\nWAV=\r\nFF_EFFECT=NULL\r\n");
+            File.WriteAllBytes(
+                Path.Combine(source, "cup", "track.kn5"),
+                SampleKn5("ksPerPixelAT_NM_emissive", [9, 8, 7, 6]));
+            var archive = Path.Combine(game, "cup.7z");
+            PackSevenZip(source, archive, "cup");
+
+            var result = await ContentArchiveInstaller.InstallSevenZipAsync(archive, game);
+
+            var piece = Assert.Single(result.Installed);
+            Assert.Equal("track", piece.Kind);
+            Assert.Equal("cup", piece.Id);
+            Assert.Contains("surfaces.ini", piece.Note, StringComparison.Ordinal);
+            Assert.Contains("shaders", piece.Note, StringComparison.Ordinal);
+            var surfaces = Path.Combine(game, "content", "tracks", "cup", "data", "surfaces.ini");
+            var text = File.ReadAllText(surfaces);
+            Assert.Contains("WAV_PITCH=0\r\n", text, StringComparison.Ordinal);
+            Assert.Contains("FF_EFFECT=NULL", text, StringComparison.Ordinal);
+            Assert.Contains("WAV_PITCH=extended-0", File.ReadAllText(surfaces + ".bak"), StringComparison.Ordinal);
+            var installedKn5 = Path.Combine(game, "content", "tracks", "cup", "track.kn5");
+            var kn5 = Encoding.ASCII.GetString(File.ReadAllBytes(installedKn5));
+            Assert.Contains("ksPerPixelAT_NM", kn5, StringComparison.Ordinal);
+            Assert.DoesNotContain("emissive", kn5, StringComparison.Ordinal);
+            Assert.Contains("emissive", Encoding.ASCII.GetString(File.ReadAllBytes(installedKn5 + ".bak")), StringComparison.Ordinal);
+
+            var again = await ContentArchiveInstaller.InstallSevenZipAsync(archive, game);
+            Assert.Contains(again.Skipped, line => line.Contains("already exists", StringComparison.Ordinal));
+            Assert.Contains("WAV_PITCH=0\r\n", File.ReadAllText(surfaces), StringComparison.Ordinal);
+        } finally {
+            Directory.Delete(game, true);
+        }
+    }
+
+    [Fact]
+    public async Task Install_rejects_a_file_that_is_not_a_7z()
+    {
+        var game = NewGameRoot();
+        try {
+            var file = Path.Combine(game, "car.7z");
+            File.WriteAllText(file, "hello");
+
+            var missing = await Assert.ThrowsAsync<FileNotFoundException>(() =>
+                ContentArchiveInstaller.InstallSevenZipAsync(Path.Combine(game, "missing.7z"), game));
+            Assert.Equal("Could not find that archive.", missing.Message);
+
+            var ex = await Assert.ThrowsAsync<InvalidDataException>(() =>
+                ContentArchiveInstaller.InstallSevenZipAsync(file, game));
+            Assert.Equal("That file is not a 7z archive.", ex.Message);
+            Assert.Empty(Directory.GetDirectories(Path.Combine(game, "content", "cars")));
+            Assert.Empty(Directory.GetDirectories(Path.Combine(game, "content", "tracks")));
+        } finally {
+            Directory.Delete(game, true);
+        }
+    }
+
+    [Fact]
     public void Install_reports_when_the_zip_has_no_car_or_track()
     {
         var game = NewGameRoot();
@@ -329,6 +396,35 @@ public class ContentArchiveTests
         var bytes = Encoding.UTF8.GetBytes(value);
         writer.Write(bytes.Length);
         writer.Write(bytes);
+    }
+
+    private static void PackSevenZip(string workingDirectory, string archive, params string[] names)
+    {
+        var tool = ServerContentInstaller.FindSevenZip();
+        Assert.False(string.IsNullOrEmpty(tool));
+        var start = new ProcessStartInfo {
+            FileName = tool,
+            WorkingDirectory = workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        start.ArgumentList.Add("a");
+        start.ArgumentList.Add("-bd");
+        start.ArgumentList.Add("-y");
+        start.ArgumentList.Add(archive);
+        foreach (var name in names) {
+            start.ArgumentList.Add(name);
+        }
+
+        using var process = Process.Start(start);
+        Assert.NotNull(process);
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        Assert.True(process.WaitForExit(20000));
+        var error = stderr.GetAwaiter().GetResult();
+        _ = stdout.GetAwaiter().GetResult();
+        Assert.True(process.ExitCode == 0, error);
     }
 
     private static void WriteZip(string path, params (string Name, string Text)[] files)

@@ -1,4 +1,5 @@
 using AcManager.Core.Content;
+using StringBasedFilter;
 using Xunit;
 
 namespace AcManager.Core.Tests;
@@ -114,13 +115,49 @@ public class ContentScanTests
             Assert.Equal("6.77", full.SpecsPwRatio);
 
             Assert.Null(cars.Single(car => car.Id == "ks_listed").Author);
-            Assert.Null(cars.Single(car => car.Id == "ks_listed").Country);
+            Assert.Equal("Italy", cars.Single(car => car.Id == "ks_listed").Country);
+            Assert.Equal("Japan", cars.Single(car => car.Id == "mod_broken").Country);
             Assert.Null(cars.Single(car => car.Id == "mod_claim").Author);
             Assert.Equal("Someone", cars.Single(car => car.Id == "mod_kept").Author);
             Assert.Equal(2016, cars.Single(car => car.Id == "mod_cup").Year);
             Assert.Null(cars.Single(car => car.Id == "mod_future").Year);
             Assert.Equal(2005, cars.Single(car => car.Id == "mod_stringyear").Year);
             Assert.Equal(1999, cars.Single(car => car.Id == "mod_broken").Year);
+            Assert.Equal(0d, full.MaxRpm);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void Torque_curve_sets_the_max_rpm()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-rpm-").FullName;
+        try {
+            WriteCar(root, "mod_peak", """
+                {
+                  "name": "Peak",
+                  "torqueCurve": [["500","89"], ["7000","136"], ["1000","123"]],
+                  "powerCurve": [["9000","400"]]
+                }
+                """);
+            WriteCar(root, "mod_numbers", """
+                { "name": "Numbers", "torqueCurve": [[1000, 10], [500, 20]] }
+                """);
+            WriteCar(root, "mod_power", """
+                { "name": "Power", "powerCurve": [["9000","100"]] }
+                """);
+            WriteCar(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteCar(root, "mod_comma", """
+                { "name": "Comma", "torqueCurve": [["7,000","10"], ["6500","nope"], [1, 2, 3]] }
+                """);
+
+            var cars = ContentLibrary.ScanCars(root);
+            Assert.Equal(7000d, cars.Single(car => car.Id == "mod_peak").MaxRpm);
+            Assert.Equal(1000d, cars.Single(car => car.Id == "mod_numbers").MaxRpm);
+            Assert.Equal(0d, cars.Single(car => car.Id == "mod_power").MaxRpm);
+            Assert.Equal(0d, cars.Single(car => car.Id == "mod_plain").MaxRpm);
+            Assert.Equal(7000d, cars.Single(car => car.Id == "mod_comma").MaxRpm);
         } finally {
             Directory.Delete(root, true);
         }
@@ -562,6 +599,543 @@ public class ContentScanTests
             Assert.Equal("gp", layouts.Layouts[0].Id);
             Assert.Equal("14 m", layouts.SpecsWidth);
             Assert.Equal("10 m", layouts.Layouts[1].SpecsWidth);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void A_track_geotags_come_from_two_strings()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-geotags-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "geotags": ["45.5", "9.2"] }""");
+            WriteTrack(root, "mod_south", """{ "name": "South", "geotags": ["45.5 S", "9.2 W"] }""");
+            WriteTrack(root, "mod_comma", """{ "name": "Comma", "geotags": ["45,5", "9,25"] }""");
+            WriteTrack(root, "mod_packed", """{ "name": "Packed", "geotags": ["4530", "920"] }""");
+            WriteTrack(root, "mod_invalid", """{ "name": "Invalid", "geotags": ["91", "9"] }""");
+            WriteTrack(root, "mod_numbers", """{ "name": "Numbers", "geotags": [45.5, 9.2] }""");
+            WriteTrack(root, "mod_three", """{ "name": "Three", "geotags": ["45", "9", "0"] }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "geotags": ["45.5", "9.2"] }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix", "geotags": ["46.5", "8.2"] }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "geotags": ["52.0", "-1.0"] }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "geotags": ["51.0", "-0.5"] }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal(45.5, spa.GeoTags!.LatitudeValue);
+            Assert.Equal(9.2, spa.GeoTags.LongitudeValue);
+            Assert.False(spa.GeoTags.IsEmptyOrInvalid);
+            Assert.Equal("45° 30′ 00″ N, 9° 12′ 59″ E", spa.GeoTags.ToString());
+            Assert.Equal(45.5, spa.Layouts[0].GeoTags!.LatitudeValue);
+
+            var south = tracks.Single(track => track.Id == "mod_south").GeoTags!;
+            Assert.Equal(-45.5, south.LatitudeValue);
+            Assert.Equal(-9.2, south.LongitudeValue);
+
+            var comma = tracks.Single(track => track.Id == "mod_comma").GeoTags!;
+            Assert.Equal(45.5, comma.LatitudeValue);
+            Assert.Equal(9.25, comma.LongitudeValue);
+
+            var packed = tracks.Single(track => track.Id == "mod_packed").GeoTags!;
+            Assert.Equal(45.5, packed.LatitudeValue);
+            Assert.Equal(9 + 20d / 60d, packed.LongitudeValue);
+
+            var invalid = tracks.Single(track => track.Id == "mod_invalid").GeoTags!;
+            Assert.True(invalid.IsEmptyOrInvalid);
+            Assert.Equal("", invalid.ToString());
+
+            Assert.Null(tracks.Single(track => track.Id == "mod_numbers").GeoTags);
+            Assert.Null(tracks.Single(track => track.Id == "mod_three").GeoTags);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").GeoTags);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal(45.5, cup.GeoTags!.LatitudeValue);
+            Assert.Equal(46.5, cup.Layouts[1].GeoTags!.LatitudeValue);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal(52.0, layouts.GeoTags!.LatitudeValue);
+            Assert.Equal(-1.0, layouts.GeoTags.LongitudeValue);
+            Assert.Equal(51.0, layouts.Layouts[1].GeoTags!.LatitudeValue);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void A_track_without_geotags_uses_the_params_list()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-params-").FullName;
+        try {
+            WriteTrack(root, "imola", """{ "name": "Imola" }""");
+            WriteLayout(root, "imola", "gp", """{ "name": "Grand Prix" }""");
+            WriteLayout(root, "imola", "national", """{ "name": "National", "geotags": ["10", "20"] }""");
+            WriteTrack(root, "ks_silverstone", """{ "name": "Silverstone", "geotags": ["1.5", "2.5"] }""");
+            WriteTrack(root, "ks_silverstone1967", """{ "name": "Historic", "geotags": ["91", "1"] }""");
+            WriteTrack(root, "algarve", """{ "name": "Algarve" }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_invalid", """{ "name": "Invalid", "geotags": ["91", "9"] }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var imola = tracks.Single(track => track.Id == "imola");
+            var imolaTags = imola.GeoTags!;
+            Assert.Equal(44.361229, imolaTags.LatitudeValue);
+            Assert.Equal(11.71248, imolaTags.LongitudeValue);
+            Assert.False(imolaTags.IsEmptyOrInvalid);
+            var gp = imola.Layouts[1].GeoTags!;
+            Assert.Equal(44.361229, gp.LatitudeValue);
+            Assert.Equal(11.71248, gp.LongitudeValue);
+            var national = imola.Layouts[2].GeoTags!;
+            Assert.Equal(10d, national.LatitudeValue);
+            Assert.Equal(20d, national.LongitudeValue);
+
+            var silverstone = tracks.Single(track => track.Id == "ks_silverstone").GeoTags!;
+            Assert.Equal(1.5, silverstone.LatitudeValue);
+            Assert.Equal(2.5, silverstone.LongitudeValue);
+
+            var historic = tracks.Single(track => track.Id == "ks_silverstone1967").GeoTags!;
+            Assert.Equal(52.090672, historic.LatitudeValue);
+            Assert.Equal(-1.02193, historic.LongitudeValue);
+            Assert.False(historic.IsEmptyOrInvalid);
+
+            Assert.Null(tracks.Single(track => track.Id == "algarve").GeoTags);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").GeoTags);
+            Assert.True(tracks.Single(track => track.Id == "mod_invalid").GeoTags!.IsEmptyOrInvalid);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void A_car_country_uses_the_country_list()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-car-country-").FullName;
+        try {
+            WriteCar(root, "mod_italy", """{ "name": "Cup", "country": "italy" }""");
+            WriteCar(root, "mod_alias", """{ "name": "Alias", "tags": ["italia"], "brand": "Mazda" }""");
+            WriteCar(root, "mod_plain", """{ "name": "Plain", "tags": ["street"] }""");
+            WriteCar(root, "mod_brand", """{ "name": "Brand", "brand": " Ferrari " }""");
+            WriteCar(root, "mod_aston", """{ "name": "Aston", "brand": "aston martin" }""");
+            WriteCar(root, "mod_unknown", """{ "name": "Unknown", "brand": "Not A Brand" }""");
+            WriteCar(root, "mod_kept", """{ "name": "Kept", "country": "Atlantis", "brand": "Ferrari" }""");
+
+            var cars = ContentLibrary.ScanCars(root);
+            Assert.Equal("Italy", cars.Single(car => car.Id == "mod_italy").Country);
+            Assert.Equal("Italy", cars.Single(car => car.Id == "mod_alias").Country);
+            Assert.Null(cars.Single(car => car.Id == "mod_plain").Country);
+            Assert.Equal("Italy", cars.Single(car => car.Id == "mod_brand").Country);
+            Assert.Equal("Great Britain", cars.Single(car => car.Id == "mod_aston").Country);
+            Assert.Null(cars.Single(car => car.Id == "mod_unknown").Country);
+            Assert.Equal("Atlantis", cars.Single(car => car.Id == "mod_kept").Country);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void A_track_country_uses_the_country_list()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-country-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "country": " Belgium " }""");
+            WriteTrack(root, "mod_tag", """{ "name": "Tagged", "country": "italy" }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "country": "" }""");
+            WriteTrack(root, "mod_spaces", """{ "name": "Spaces", "country": "   " }""");
+            WriteTrack(root, "mod_number", """{ "name": "Number", "country": 12 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_fromtag", """{ "name": "From Tag", "tags": ["italy"] }""");
+            WriteTrack(root, "mod_alias", """{ "name": "Alias", "tags": ["italia"] }""");
+            WriteTrack(root, "mod_usa", """{ "name": "Usa", "tags": ["california, usa"] }""");
+            WriteTrack(root, "mod_unknown", """{ "name": "Unknown", "country": "Atlantis" }""");
+            WriteTrack(root, "mod_paren", """{ "name": "Paren", "country": "somewhere (italy)" }""");
+            WriteTrack(root, "mod_first", """{ "name": "First", "tags": ["circuit", "japan", "italy"] }""");
+            WriteTrack(root, "mod_uk", """{ "name": "Uk", "country": "uk" }""");
+            WriteTrack(root, "mod_na", """{ "name": "Na", "tags": ["virtual"] }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "country": "Belgium" }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix" }""");
+            WriteTrack(root, "mod_child", """{ "name": "Child" }""");
+            WriteLayout(root, "mod_child", "gp", """{ "name": "Grand Prix", "tags": ["italia"] }""");
+            WriteTrack(root, "mod_split", """{ "name": "Split", "country": "Belgium" }""");
+            WriteLayout(root, "mod_split", "gp", """{ "name": "Grand Prix", "country": "Italy" }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "country": "Belgium" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "country": "Italy" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal("Belgium", spa.Country);
+            Assert.Equal("Belgium", spa.Layouts[0].Country);
+            Assert.Equal("Italy", tracks.Single(track => track.Id == "mod_tag").Country);
+            Assert.Null(tracks.Single(track => track.Id == "mod_blank").Country);
+            Assert.Equal("", tracks.Single(track => track.Id == "mod_spaces").Country);
+            Assert.Equal("12", tracks.Single(track => track.Id == "mod_number").Country);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").Country);
+            Assert.Equal("Italy", tracks.Single(track => track.Id == "mod_fromtag").Country);
+            Assert.Equal("Italy", tracks.Single(track => track.Id == "mod_alias").Country);
+            Assert.Equal("USA", tracks.Single(track => track.Id == "mod_usa").Country);
+            Assert.Equal("Atlantis", tracks.Single(track => track.Id == "mod_unknown").Country);
+            Assert.Equal("Italy", tracks.Single(track => track.Id == "mod_paren").Country);
+            Assert.Equal("Japan", tracks.Single(track => track.Id == "mod_first").Country);
+            Assert.Equal("Great Britain", tracks.Single(track => track.Id == "mod_uk").Country);
+            Assert.Equal("N/A", tracks.Single(track => track.Id == "mod_na").Country);
+
+            var child = tracks.Single(track => track.Id == "mod_child");
+            Assert.Null(child.Country);
+            Assert.Equal("Italy", child.Layouts[1].Country);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("Belgium", cup.Country);
+            Assert.Null(cup.Layouts[1].Country);
+
+            var split = tracks.Single(track => track.Id == "mod_split");
+            Assert.Equal("Belgium", split.Country);
+            Assert.Equal("Italy", split.Layouts[1].Country);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal("Belgium", layouts.Country);
+            Assert.Equal("Italy", layouts.Layouts[1].Country);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void A_listed_id_supplies_the_year_before_the_name()
+    {
+        var carsRoot = Directory.CreateTempSubdirectory("actools-car-years-").FullName;
+        var tracksRoot = Directory.CreateTempSubdirectory("actools-track-years-").FullName;
+        try {
+            WriteCar(carsRoot, "2013gt3cup", """{ "name": "Plain" }""");
+            WriteCar(carsRoot, "918_spyder", """{ "name": "Cup '16" }""");
+            WriteCar(carsRoot, "997cupr", """{ "name": "Cup '16", "year": 1991 }""");
+            WriteCar(carsRoot, "mod_cup", """{ "name": "Cup '16" }""");
+
+            var cars = ContentLibrary.ScanCars(carsRoot);
+            Assert.Equal(2013, cars.Single(car => car.Id == "2013gt3cup").Year);
+            Assert.Equal(2013, cars.Single(car => car.Id == "918_spyder").Year);
+            Assert.Equal(1991, cars.Single(car => car.Id == "997cupr").Year);
+            Assert.Equal(2016, cars.Single(car => car.Id == "mod_cup").Year);
+
+            WriteTrack(tracksRoot, "ks_silverstone1967", """{ "name": "Cup '16" }""");
+            WriteLayout(tracksRoot, "ks_silverstone1967", "gp", """{ "name": "Grand Prix" }""");
+            WriteLayout(tracksRoot, "ks_silverstone1967", "national", """{ "name": "National", "year": 2001 }""");
+            WriteTrack(tracksRoot, "monza66", """{ "name": "Plain", "year": 1991 }""");
+            WriteTrack(tracksRoot, "mod_name", """{ "name": "Cup '16" }""");
+
+            var tracks = ContentLibrary.ScanTracks(tracksRoot);
+            var historic = tracks.Single(track => track.Id == "ks_silverstone1967");
+            Assert.Equal(1967, historic.Year);
+            Assert.Equal(1967, historic.Layouts[1].Year);
+            Assert.Equal(2001, historic.Layouts[2].Year);
+            Assert.Equal(1991, tracks.Single(track => track.Id == "monza66").Year);
+            Assert.Equal(2016, tracks.Single(track => track.Id == "mod_name").Year);
+        } finally {
+            Directory.Delete(carsRoot, true);
+            Directory.Delete(tracksRoot, true);
+        }
+    }
+
+    [Fact]
+    public void A_track_year_comes_from_the_json_then_the_name()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-year-").FullName;
+        try {
+            WriteTrack(root, "mod_json", """{ "name": "Cup '16", "year": 1991 }""");
+            WriteTrack(root, "mod_string", """{ "name": "Old '16", "year": "2005" }""");
+            WriteTrack(root, "mod_name", """{ "name": "Cup '16" }""");
+            WriteTrack(root, "mod_old", """{ "name": "Cup '18" }""");
+            WriteTrack(root, "mod_curly", """{ "name": "Alfa ’95" }""");
+            WriteTrack(root, "mod_id", """{ "name": "Brands Hatch 2018" }""");
+            WriteTrack(root, "mod_future", """{ "name": "Sepang 2026" }""");
+            WriteTrack(root, "mod_version", """{ "name": "Heritage '16 v2.0" }""");
+            WriteTrack(root, "mod_both", """{ "name": "Heritage '16 v2.0", "year": 2016 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Cup '67", "year": "" }""");
+            WriteTrack(root, "cup_2016", """{ }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Imola", "year": 1991 }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix" }""");
+            WriteTrack(root, "mod_split", """{ "name": "Cup '16" }""");
+            WriteLayout(root, "mod_split", "gp", """{ "name": "Grand Prix", "year": 2001 }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix '16" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift '67" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var json = tracks.Single(track => track.Id == "mod_json");
+            Assert.Equal(1991, json.Year);
+            Assert.Equal("Cup '16", json.Name);
+            Assert.Equal(1991, json.Layouts[0].Year);
+            Assert.Equal(2005, tracks.Single(track => track.Id == "mod_string").Year);
+            Assert.Equal(2016, tracks.Single(track => track.Id == "mod_name").Year);
+            Assert.Equal(1918, tracks.Single(track => track.Id == "mod_old").Year);
+            Assert.Equal(1995, tracks.Single(track => track.Id == "mod_curly").Year);
+            Assert.Equal(2018, tracks.Single(track => track.Id == "mod_id").Year);
+
+            var future = tracks.Single(track => track.Id == "mod_future");
+            Assert.Null(future.Year);
+            Assert.Equal("Sepang 2026", future.Name);
+
+            var version = tracks.Single(track => track.Id == "mod_version");
+            Assert.Equal("Heritage '16", version.Name);
+            Assert.Equal("2.0", version.Layouts[0].Version);
+            Assert.Null(version.Year);
+
+            var both = tracks.Single(track => track.Id == "mod_both");
+            Assert.Equal("Heritage '16", both.Name);
+            Assert.Equal("2.0", both.Layouts[0].Version);
+            Assert.Equal(2016, both.Year);
+
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").Year);
+            Assert.Equal(1967, tracks.Single(track => track.Id == "mod_blank").Year);
+
+            var folder = tracks.Single(track => track.Id == "cup_2016");
+            Assert.Equal("cup_2016", folder.Name);
+            Assert.Null(folder.Year);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal(1991, cup.Year);
+            Assert.Null(cup.Layouts[1].Year);
+
+            var split = tracks.Single(track => track.Id == "mod_split");
+            Assert.Equal(2016, split.Year);
+            Assert.Equal(2001, split.Layouts[1].Year);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal(2016, layouts.Year);
+            Assert.Equal(1967, layouts.Layouts[1].Year);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void A_track_tags_come_from_the_json_array()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-tags-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "tags": ["circuit", " italy ", 2, true] }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_empty", """{ "name": "Empty", "tags": [] }""");
+            WriteTrack(root, "mod_text", """{ "name": "Text", "tags": "circuit" }""");
+            WriteTrack(root, "mod_fromtag", """{ "name": "From Tag", "tags": ["italy"] }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "tags": ["circuit"] }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix" }""");
+            WriteTrack(root, "mod_split", """{ "name": "Split", "tags": ["circuit"] }""");
+            WriteLayout(root, "mod_split", "gp", """{ "name": "Grand Prix", "tags": ["drift"] }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "tags": ["circuit"] }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "tags": ["drift", false] }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal(["circuit", " italy ", "2", "True"], spa.Tags);
+            Assert.Equal(["circuit", " italy ", "2", "True"], spa.Layouts[0].Tags);
+            Assert.Equal("Italy", spa.Country);
+            Assert.Empty(tracks.Single(track => track.Id == "mod_plain").Tags);
+            Assert.Empty(tracks.Single(track => track.Id == "mod_empty").Tags);
+            Assert.Empty(tracks.Single(track => track.Id == "mod_text").Tags);
+
+            var fromTag = tracks.Single(track => track.Id == "mod_fromtag");
+            Assert.Equal(["italy"], fromTag.Tags);
+            Assert.Equal("Italy", fromTag.Country);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal(["circuit"], cup.Tags);
+            Assert.Equal([], cup.Layouts[1].Tags);
+
+            var split = tracks.Single(track => track.Id == "mod_split");
+            Assert.Equal(["circuit"], split.Tags);
+            Assert.Equal(["drift"], split.Layouts[1].Tags);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal(["circuit"], layouts.Tags);
+            Assert.Equal(["drift", "False"], layouts.Layouts[1].Tags);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void A_listed_track_or_layout_is_kunos()
+    {
+        Assert.False(OfficialTrackList.FromJson("").IsOfficial("imola", ""));
+        Assert.False(OfficialTrackList.FromJson("{").IsOfficial("ks_brands_hatch", "gp"));
+        Assert.True(OfficialTracks.IsOfficial("imola", ""));
+        Assert.True(OfficialTracks.IsOfficial("ks_brands_hatch", "gp"));
+        Assert.False(OfficialTracks.IsOfficial("ks_monza", ""));
+        Assert.False(OfficialTracks.IsOfficial("imola", "gp"));
+
+        var root = Directory.CreateTempSubdirectory("actools-official-tracks-").FullName;
+        var layoutsOnly = Directory.CreateTempSubdirectory("actools-official-layouts-").FullName;
+        try {
+            WriteTrack(root, "imola", """{ "name": "Imola", "author": "Someone" }""");
+            WriteTrack(root, "ks_brands_hatch", """{ "name": "Brands Hatch", "author": "Someone" }""");
+            WriteLayout(root, "ks_brands_hatch", "gp", """{ "name": "Grand Prix", "author": "Layout Team" }""");
+            WriteLayout(root, "ks_brands_hatch", "club", """{ "name": "Club", "author": "Club Team" }""");
+            WriteTrack(root, "ks_monza", """{ "name": "Monza", "author": "Someone" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var imola = tracks.Single(track => track.Id == "imola");
+            Assert.Equal(CarAuthors.Kunos, imola.Author);
+            Assert.True(Filter.Create(TrackSummaryTester.Instance, "kunos+").Test(imola));
+
+            var brands = tracks.Single(track => track.Id == "ks_brands_hatch");
+            Assert.Equal(CarAuthors.Kunos, brands.Layouts.Single(layout => layout.Id == "").Author);
+            Assert.Equal(CarAuthors.Kunos, brands.Layouts.Single(layout => layout.Id == "gp").Author);
+            Assert.Equal("Club Team", brands.Layouts.Single(layout => layout.Id == "club").Author);
+
+            var monza = tracks.Single(track => track.Id == "ks_monza");
+            Assert.Equal("Someone", monza.Author);
+            Assert.False(Filter.Create(TrackSummaryTester.Instance, "kunos+").Test(monza));
+
+            WriteLayout(layoutsOnly, "imola", "gp", """{ "name": "Grand Prix", "author": "Someone" }""");
+            WriteLayout(layoutsOnly, "ks_brands_hatch", "gp", """{ "name": "Grand Prix", "author": "Someone" }""");
+            var folders = ContentLibrary.ScanTracks(layoutsOnly);
+            Assert.Equal("Someone", folders.Single(track => track.Id == "imola").Author);
+            Assert.Equal(CarAuthors.Kunos, folders.Single(track => track.Id == "ks_brands_hatch").Author);
+        } finally {
+            Directory.Delete(root, true);
+            Directory.Delete(layoutsOnly, true);
+        }
+    }
+
+    [Fact]
+    public void A_track_author_keeps_the_json_text()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-author-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "author": " Reboot Team " }""");
+            WriteTrack(root, "mod_kunos", """{ "name": "Claimed", "author": "Kunos" }""");
+            WriteTrack(root, "mod_padded", """{ "name": "Padded", "author": " Kunos " }""");
+            WriteTrack(root, "mod_lower", """{ "name": "Lower", "author": "kunos" }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "author": "" }""");
+            WriteTrack(root, "mod_spaces", """{ "name": "Spaces", "author": "   " }""");
+            WriteTrack(root, "mod_number", """{ "name": "Number", "author": 12 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "ks_monza", """{ "name": "Monza", "author": "Someone" }""");
+            WriteTrack(root, "ks_imola", """{ "name": "Imola", "author": "Kunos" }""");
+            WriteTrack(root, "ks_spa", """{ "name": "Spa" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "author": "Reboot Team" }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix" }""");
+            WriteTrack(root, "mod_split", """{ "name": "Split" }""");
+            WriteLayout(root, "mod_split", "gp", """{ "name": "Grand Prix", "author": "Layout Team" }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "author": "Grand Prix Team" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "author": "Drift Team" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal("Reboot Team", spa.Author);
+            Assert.Equal("Reboot Team", spa.Layouts[0].Author);
+            Assert.Null(tracks.Single(track => track.Id == "mod_kunos").Author);
+            Assert.Null(tracks.Single(track => track.Id == "mod_padded").Author);
+            Assert.Equal("kunos", tracks.Single(track => track.Id == "mod_lower").Author);
+            Assert.Null(tracks.Single(track => track.Id == "mod_blank").Author);
+            Assert.Equal("", tracks.Single(track => track.Id == "mod_spaces").Author);
+            Assert.Equal("12", tracks.Single(track => track.Id == "mod_number").Author);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").Author);
+            Assert.Equal("Someone", tracks.Single(track => track.Id == "ks_monza").Author);
+            Assert.Null(tracks.Single(track => track.Id == "ks_imola").Author);
+            Assert.Null(tracks.Single(track => track.Id == "ks_spa").Author);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("Reboot Team", cup.Author);
+            Assert.Null(cup.Layouts[1].Author);
+
+            var split = tracks.Single(track => track.Id == "mod_split");
+            Assert.Null(split.Author);
+            Assert.Equal("Layout Team", split.Layouts[1].Author);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal("Grand Prix Team", layouts.Author);
+            Assert.Equal("Drift Team", layouts.Layouts[1].Author);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void A_track_url_keeps_the_json_text()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-url-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "url": " https://example.com/spa " }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "url": "" }""");
+            WriteTrack(root, "mod_spaces", """{ "name": "Spaces", "url": "   " }""");
+            WriteTrack(root, "mod_number", """{ "name": "Number", "url": 12 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "url": "https://example.com/cup" }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix" }""");
+            WriteTrack(root, "mod_split", """{ "name": "Split" }""");
+            WriteLayout(root, "mod_split", "gp", """{ "name": "Grand Prix", "url": "https://example.com/gp" }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "url": "https://example.com/gp" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "url": "https://example.com/drift" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal("https://example.com/spa", spa.Url);
+            Assert.Equal("https://example.com/spa", spa.Layouts[0].Url);
+            Assert.Null(tracks.Single(track => track.Id == "mod_blank").Url);
+            Assert.Null(tracks.Single(track => track.Id == "mod_spaces").Url);
+            Assert.Equal("12", tracks.Single(track => track.Id == "mod_number").Url);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").Url);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("https://example.com/cup", cup.Url);
+            Assert.Null(cup.Layouts[1].Url);
+
+            var split = tracks.Single(track => track.Id == "mod_split");
+            Assert.Null(split.Url);
+            Assert.Equal("https://example.com/gp", split.Layouts[1].Url);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal("https://example.com/gp", layouts.Url);
+            Assert.Equal("https://example.com/drift", layouts.Layouts[1].Url);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void A_track_priority_is_the_json_number()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-priority-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "priority": 2 }""");
+            WriteTrack(root, "mod_text", """{ "name": "Text", "priority": "1.5" }""");
+            WriteTrack(root, "mod_spaces", """{ "name": "Spaces", "priority": "  3 " }""");
+            WriteTrack(root, "mod_grouped", """{ "name": "Grouped", "priority": "1,500" }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "priority": "" }""");
+            WriteTrack(root, "mod_words", """{ "name": "Words", "priority": "high" }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "priority": 4 }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix", "priority": 9 }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "priority": 2 }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal(2d, spa.Priority);
+            Assert.Equal(2d, spa.Layouts[0].Priority);
+            Assert.Equal(1.5, tracks.Single(track => track.Id == "mod_text").Priority);
+            Assert.Equal(3d, tracks.Single(track => track.Id == "mod_spaces").Priority);
+            Assert.Equal(1500d, tracks.Single(track => track.Id == "mod_grouped").Priority);
+            Assert.Equal(0d, tracks.Single(track => track.Id == "mod_blank").Priority);
+            Assert.Equal(0d, tracks.Single(track => track.Id == "mod_words").Priority);
+            Assert.Equal(0d, tracks.Single(track => track.Id == "mod_plain").Priority);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("", cup.Layouts[0].Id);
+            Assert.Equal(4d, cup.Priority);
+            Assert.Equal(9d, cup.Layouts[1].Priority);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("drift", layouts.Layouts[0].Id);
+            Assert.Equal(2d, layouts.Priority);
+            Assert.Equal(0d, layouts.Layouts[1].Priority);
         } finally {
             Directory.Delete(root, true);
         }

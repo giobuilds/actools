@@ -46,6 +46,7 @@ public class DriveFlowTests
             var car = Assert.Single(drive.FilteredCars);
             Assert.Equal("ks_mazda_mx5_cup", car.Id);
             Assert.Equal("ks_silverstone", drive.SelectedTrack?.Id);
+            Assert.Equal("ks_silverstone", Assert.Single(drive.FilteredTracks).Id);
 
             Assert.True(drive.DriveCommand.CanExecute(null));
             drive.DriveCommand.Execute(null);
@@ -69,6 +70,39 @@ public class DriveFlowTests
             Assert.Equal("3", race["SESSION_0"].Get("LAPS"));
             Assert.Equal("3", race["RACE"].Get("CARS"));
             Assert.Equal("ks_mazda_mx5_cup", race["CAR_2"].Get("MODEL"));
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void Track_filter_narrows_the_track_list_and_leaves_the_car_filter_alone()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-ui-tracks-").FullName;
+        try {
+            var game = WriteGame(Path.Combine(root, "library"));
+            WriteCar(game, "ks_mazda_mx5_cup", "Mazda MX-5 Cup", "Mazda");
+            WriteTrackJson(game, "ks_monza", """{ "name": "Monza", "city": "Monza" }""");
+            WriteTrackJson(game, "ks_spa", """{ "name": "Spa", "city": "Stavelot" }""");
+
+            var drive = new DriveViewModel(new RecordingLauncher());
+            drive.UseLayout(new AcInstallLayout(game, Path.Combine(root, "docs"), null, "Steam"));
+            Assert.Equal(2, drive.FilteredTracks.Count);
+
+            drive.TrackFilter = "city:monza";
+            var track = Assert.Single(drive.FilteredTracks);
+            Assert.Equal("ks_monza", track.Id);
+            Assert.Equal("ks_monza", drive.SelectedTrack?.Id);
+
+            drive.Filter = "no-such-car";
+            Assert.Empty(drive.FilteredCars);
+            Assert.Equal("ks_monza", drive.SelectedTrack?.Id);
+            Assert.Equal("ks_monza", Assert.Single(drive.FilteredTracks).Id);
+
+            drive.Filter = "";
+            drive.TrackFilter = "";
+            Assert.Equal(2, drive.FilteredTracks.Count);
+            Assert.Equal("ks_mazda_mx5_cup", Assert.Single(drive.FilteredCars).Id);
         } finally {
             Directory.Delete(root, true);
         }
@@ -119,9 +153,14 @@ public class DriveFlowTests
 
     private static void WriteTrack(string game, string id, string name)
     {
+        WriteTrackJson(game, id, $$"""{ "name": "{{name}}" }""");
+    }
+
+    private static void WriteTrackJson(string game, string id, string json)
+    {
         var track = Path.Combine(game, "content", "tracks", id, "ui");
         Directory.CreateDirectory(track);
-        File.WriteAllText(Path.Combine(track, "ui_track.json"), $$"""{ "name": "{{name}}" }""");
+        File.WriteAllText(Path.Combine(track, "ui_track.json"), json);
     }
 
     private sealed class FixedLocator : IInstallLocator

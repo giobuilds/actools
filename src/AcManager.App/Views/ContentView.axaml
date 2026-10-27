@@ -8,11 +8,11 @@
     <StackPanel MaxWidth="760" HorizontalAlignment="Left" Spacing="12">
       <TextBlock Text="Content" FontSize="28" FontWeight="SemiBold" />
       <TextBlock TextWrapping="Wrap" Opacity="0.8"
-                 Text="Install a car or a track from a .zip into the game content folder. The archive needs a ui/ui_car.json or ui/ui_track.json. A folder that is already there is left alone. 7z is not supported yet. Added cars and tracks can be removed below. Original game content stays installed." />
+                 Text="Install a car or a track from a .zip or .7z into the game content folder. The archive needs a ui/ui_car.json or ui/ui_track.json. A folder that is already there is left alone. Added cars and tracks can be removed below. Original game content stays installed." />
 
       <TextBlock Text="Archive" />
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-        <TextBox Grid.Column="0" Text="{Binding ArchivePath}" PlaceholderText="Path to a .zip archive" />
+        <TextBox Grid.Column="0" Text="{Binding ArchivePath}" PlaceholderText="Path to a .zip or .7z archive" />
         <Button Grid.Column="1" Content="Browse…" Click="Browse" />
       </Grid>
 

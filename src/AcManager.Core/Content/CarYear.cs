@@ -4,8 +4,8 @@ using System.Text.RegularExpressions;
 namespace AcManager.Core.Content;
 
 /// <summary>
-/// Year at the end of a car name. Copied from <c>AcStringValues.GetYearFromName</c> and <c>GetYearFromId</c>.
-/// <c>CarObject.LoadYear</c> calls both on the display name.
+/// Year at the end of a name. Copied from <c>AcStringValues.GetYearFromName</c> and <c>GetYearFromId</c>.
+/// Cars and tracks call both on the trimmed JSON name, before a trailing version is removed.
 /// </summary>
 public static class CarYear
 {

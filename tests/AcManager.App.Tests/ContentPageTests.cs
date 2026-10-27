@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Compression;
 using AcManager.App.ViewModels;
 using AcManager.Core.Content;
@@ -93,11 +94,16 @@ public class ContentPageTests
 
             window.Content.ArchivePath = "   ";
             await window.Content.InstallCommand.ExecuteAsync(null);
-            Assert.Equal("Choose a .zip file.", window.Content.Status);
+            Assert.Equal("Choose a .zip or .7z file.", window.Content.Status);
 
             window.Content.ArchivePath = Path.Combine(root, "mod.7z");
             await window.Content.InstallCommand.ExecuteAsync(null);
-            Assert.Equal("Only .zip archives can be installed. 7z is not supported yet.", window.Content.Status);
+            Assert.Equal("Could not find that archive.", window.Content.Status);
+            Assert.Equal(0, refreshes);
+
+            window.Content.ArchivePath = Path.Combine(root, "mod.rar");
+            await window.Content.InstallCommand.ExecuteAsync(null);
+            Assert.Equal("Only .zip and .7z archives can be installed.", window.Content.Status);
             Assert.Equal(0, refreshes);
 
             var missing = new MainWindowViewModel(
@@ -107,6 +113,41 @@ public class ContentPageTests
             missing.Content.ArchivePath = Path.Combine(root, "car.zip");
             await missing.Content.InstallCommand.ExecuteAsync(null);
             Assert.Equal("Set the game folder on the Install page before installing content.", missing.Content.Status);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Install_adds_a_car_from_a_7z()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-content-7z-ui-").FullName;
+        try {
+            var game = Path.Combine(root, "game");
+            Directory.CreateDirectory(Path.Combine(game, "content", "cars"));
+            Directory.CreateDirectory(Path.Combine(game, "content", "tracks"));
+            Directory.CreateDirectory(Path.Combine(game, "content", "sfx"));
+            File.WriteAllText(Path.Combine(game, "acs.exe"), "");
+            File.WriteAllText(Path.Combine(game, "content", "sfx", "GUIDs.txt"), "{a} event:/cars/ks_existing/engine\n");
+            var source = Path.Combine(root, "src");
+            Directory.CreateDirectory(Path.Combine(source, "ui"));
+            Directory.CreateDirectory(Path.Combine(source, "data"));
+            File.WriteAllText(Path.Combine(source, "ui", "ui_car.json"), "{\"name\":\"Bonus\"}");
+            File.WriteAllText(Path.Combine(source, "data", "car.ini"), "[CAR]");
+            var archive = Path.Combine(root, "bonus_car.7z");
+            PackSevenZip(source, archive, "ui", "data");
+
+            var content = new ContentViewModel();
+            content.UseLayout(new AcInstallLayout(game, null, null, "test"));
+            var refreshes = 0;
+            content.Installed = () => refreshes++;
+            content.ArchivePath = archive;
+            await content.InstallCommand.ExecuteAsync(null);
+
+            Assert.Equal(1, refreshes);
+            Assert.Contains("Installed car bonus_car.", content.Status, StringComparison.Ordinal);
+            Assert.True(File.Exists(Path.Combine(game, "content", "cars", "bonus_car", "ui", "ui_car.json")));
+            Assert.Contains(content.Cars, car => car.Id == "bonus_car");
         } finally {
             Directory.Delete(root, true);
         }
@@ -205,6 +246,35 @@ public class ContentPageTests
         } finally {
             Directory.Delete(root, true);
         }
+    }
+
+    private static void PackSevenZip(string workingDirectory, string archive, params string[] names)
+    {
+        var tool = ServerContentInstaller.FindSevenZip();
+        Assert.False(string.IsNullOrEmpty(tool));
+        var start = new ProcessStartInfo {
+            FileName = tool,
+            WorkingDirectory = workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        start.ArgumentList.Add("a");
+        start.ArgumentList.Add("-bd");
+        start.ArgumentList.Add("-y");
+        start.ArgumentList.Add(archive);
+        foreach (var name in names) {
+            start.ArgumentList.Add(name);
+        }
+
+        using var process = Process.Start(start);
+        Assert.NotNull(process);
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        Assert.True(process.WaitForExit(20000));
+        var error = stderr.GetAwaiter().GetResult();
+        _ = stdout.GetAwaiter().GetResult();
+        Assert.True(process.ExitCode == 0, error);
     }
 
     private static void WriteZip(string path, params (string Name, string Text)[] files)

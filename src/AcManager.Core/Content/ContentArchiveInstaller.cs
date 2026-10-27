@@ -19,8 +19,9 @@ public sealed record ContentInstallResult(
     IReadOnlyList<string> Skipped);
 
 /// <summary>
-/// Copies a car or a track out of a zip into content/cars or content/tracks.
+/// Copies a car or a track out of a zip or a 7z into content/cars or content/tracks.
 /// The archive must contain ui/ui_car.json or ui/ui_track.json. Existing folders are left alone.
+/// Both kinds rewrite surfaces.ini pitch values and Custom Shaders Patch shader names.
 /// </summary>
 public static class ContentArchiveInstaller
 {
@@ -109,20 +110,11 @@ public static class ContentArchiveInstaller
                 try {
                     Directory.CreateDirectory(dest);
                     Extract(entries, plan.ArchivePrefix, dest);
-                    var notes = new List<string>();
-                    if (plan.Kind == InstalledContentKind.Track && TrackSurfaces.SanitizeTree(dest) > 0) {
-                        notes.Add("Adjusted surfaces.ini so pitch values load without Custom Shaders Patch.");
-                    }
-
-                    if (Kn5ShaderFallback.RewriteTree(dest) > 0) {
-                        notes.Add("Replaced Custom Shaders Patch materials with the original game's shaders.");
-                    }
-
                     installed.Add(new InstalledPiece(
                         KindName(plan.Kind),
                         plan.Id,
                         dest,
-                        notes.Count == 0 ? null : string.Join(" ", notes)));
+                        VanillaNotes(plan.Kind, dest)));
                 } catch (InvalidDataException ex) when (ex.Message.Contains("escapes", StringComparison.Ordinal)) {
                     TryDelete(dest);
                     skipped.Add(Label(plan) + " was skipped because an entry escapes the destination.");
@@ -136,6 +128,84 @@ public static class ContentArchiveInstaller
             }
 
             return new ContentInstallResult(installed, skipped);
+        }
+    }
+
+    public static async Task<ContentInstallResult> InstallSevenZipAsync(
+        string archivePath,
+        string gameRoot,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(gameRoot)) {
+            throw new ArgumentException("A game folder is required.", nameof(gameRoot));
+        }
+
+        if (string.IsNullOrWhiteSpace(archivePath) || !File.Exists(archivePath)) {
+            throw new FileNotFoundException("Could not find that archive.", archivePath);
+        }
+
+        if (!archivePath.EndsWith(".7z", StringComparison.OrdinalIgnoreCase)) {
+            throw new InvalidDataException("Only .zip and .7z archives can be installed.");
+        }
+
+        if (!ServerContentInstaller.HasSevenZipSignature(archivePath)) {
+            throw new InvalidDataException("That file is not a 7z archive.");
+        }
+
+        if (ServerContentInstaller.FindSevenZip() == null) {
+            throw new InvalidDataException("7-Zip is not installed, so these archives cannot be extracted.");
+        }
+
+        var temp = Directory.CreateTempSubdirectory("actools-7z-install-");
+        try {
+            var reason = await ServerContentInstaller.ExtractToDirectoryAsync(archivePath, temp.FullName, cancellationToken)
+                .ConfigureAwait(false);
+            if (reason != null) {
+                return new ContentInstallResult([], [SevenZipProblem(reason)]);
+            }
+
+            var plans = Plan(RelativeNames(temp.FullName), Path.GetFileName(archivePath));
+            if (plans.Count == 0) {
+                return new ContentInstallResult([], [
+                    "No car or track was found. The archive needs a ui/ui_car.json or ui/ui_track.json.",
+                ]);
+            }
+
+            var installed = new List<InstalledPiece>();
+            var skipped = new List<string>();
+            foreach (var plan in plans) {
+                var dest = Path.GetFullPath(Path.Combine(gameRoot, "content", Folder(plan.Kind), plan.Id));
+                if (Directory.Exists(dest)) {
+                    skipped.Add(Label(plan) + " already exists.");
+                    continue;
+                }
+
+                try {
+                    Directory.CreateDirectory(dest);
+                    CopyExtracted(temp.FullName, plan.ArchivePrefix, dest);
+                    installed.Add(new InstalledPiece(
+                        KindName(plan.Kind),
+                        plan.Id,
+                        dest,
+                        VanillaNotes(plan.Kind, dest)));
+                } catch (InvalidDataException ex) when (ex.Message.Contains("symbolic", StringComparison.Ordinal)) {
+                    TryDelete(dest);
+                    skipped.Add(Label(plan) + " was skipped because an entry is a symbolic link.");
+                } catch (InvalidDataException ex) when (ex.Message.Contains("escapes", StringComparison.Ordinal)) {
+                    TryDelete(dest);
+                    skipped.Add(Label(plan) + " was skipped because an entry escapes the destination.");
+                } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
+                    TryDelete(dest);
+                    skipped.Add(Label(plan) + " was skipped because the archive entry could not be copied.");
+                } catch (Exception) {
+                    TryDelete(dest);
+                    throw;
+                }
+            }
+
+            return new ContentInstallResult(installed, skipped);
+        } finally {
+            TryDelete(temp.FullName);
         }
     }
 
@@ -405,6 +475,114 @@ public static class ContentArchiveInstaller
         kind == InstalledContentKind.Car ? "car" : "track";
 
     private static string Label(ArchiveEntryPlan plan) => KindName(plan.Kind) + " " + plan.Id;
+
+    private static string? VanillaNotes(InstalledContentKind kind, string dest)
+    {
+        var notes = new List<string>();
+        if (kind == InstalledContentKind.Track && TrackSurfaces.SanitizeTree(dest) > 0) {
+            notes.Add("Adjusted surfaces.ini so pitch values load without Custom Shaders Patch.");
+        }
+
+        if (Kn5ShaderFallback.RewriteTree(dest) > 0) {
+            notes.Add("Replaced Custom Shaders Patch materials with the original game's shaders.");
+        }
+
+        return notes.Count == 0 ? null : string.Join(" ", notes);
+    }
+
+    private static List<string> RelativeNames(string extractedRoot)
+    {
+        var root = Path.GetFullPath(extractedRoot);
+        var names = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)) {
+            if (IsReparse(file)) {
+                throw new InvalidDataException("An entry is a symbolic link.");
+            }
+
+            var full = Path.GetFullPath(file);
+            if (!IsInside(root, full)) {
+                throw new InvalidDataException("An entry escapes the destination.");
+            }
+
+            names.Add(Normalize(Path.GetRelativePath(root, full)));
+        }
+
+        return names;
+    }
+
+    private static void CopyExtracted(string extractedRoot, string prefix, string dest)
+    {
+        var root = Path.GetFullPath(extractedRoot);
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)) {
+            if (IsReparse(file)) {
+                throw new InvalidDataException("An entry is a symbolic link.");
+            }
+
+            var full = Path.GetFullPath(file);
+            if (!IsInside(root, full)) {
+                throw new InvalidDataException("An entry escapes the destination.");
+            }
+
+            var name = Normalize(Path.GetRelativePath(root, full));
+            if (prefix.Length > 0 && !name.StartsWith(prefix, StringComparison.Ordinal)) {
+                continue;
+            }
+
+            var relative = prefix.Length == 0 ? name : name[prefix.Length..];
+            if (relative.Length == 0) {
+                continue;
+            }
+
+            if (!TrySafeRelative(relative, out var safe)) {
+                throw new InvalidDataException("An entry escapes the destination.");
+            }
+
+            var target = Path.GetFullPath(Path.Combine(dest, safe.Replace('/', Path.DirectorySeparatorChar)));
+            if (!IsInside(dest, target)) {
+                throw new InvalidDataException("An entry escapes the destination.");
+            }
+
+            var parent = Path.GetDirectoryName(target);
+            if (!string.IsNullOrEmpty(parent)) {
+                Directory.CreateDirectory(parent);
+            }
+
+            File.Copy(full, target, overwrite: false);
+        }
+    }
+
+    private static bool IsReparse(string path)
+    {
+        try {
+            return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+        } catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) {
+            return false;
+        } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
+            return true;
+        }
+    }
+
+    private static string SevenZipProblem(string reason)
+    {
+        if (reason.EndsWith('.')) {
+            return reason;
+        }
+
+        return reason switch {
+            "password-protected archives are not supported" => "Password-protected archives are not supported.",
+            "an entry escapes the destination" => "An entry escapes the destination.",
+            "an entry is a symbolic link" => "An entry is a symbolic link.",
+            "it has too many files" => "That archive has too many files.",
+            "it is larger than 2 GB" => "That archive is larger than 2 GB.",
+            "no car or track was found in the archive" =>
+                "No car or track was found. The archive needs a ui/ui_car.json or ui/ui_track.json.",
+            "7-Zip could not read the archive" => "7-Zip could not read the archive.",
+            "7-Zip could not extract the archive" => "7-Zip could not extract the archive.",
+            "7-Zip is not installed, so these archives cannot be extracted" =>
+                "7-Zip is not installed, so these archives cannot be extracted.",
+            _ => "The archive could not be installed.",
+        };
+    }
 
     private static void TryDelete(string directory)
     {
