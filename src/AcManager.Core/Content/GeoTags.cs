@@ -6,8 +6,8 @@ namespace AcManager.Core.Content;
 
 /// <summary>
 /// Latitude and longitude from a track <c>geotags</c> array.
-/// Copied from <c>GeoTagsEntry</c> and <c>GetGeoTagsValueOnly</c>.
-/// The DataProvider latitude list stays unread.
+/// Copied from <c>GeoTagsEntry</c>. The numeric constructor stores degrees directly,
+/// the same way <c>GeoTagsEntry(double, double)</c> does for <c>Track Params.ini</c>.
 /// </summary>
 public sealed class GeoTags
 {
@@ -17,6 +17,14 @@ public sealed class GeoTags
         Longitude = longitude;
         LatitudeValue = ParseCoordinate(latitude, true);
         LongitudeValue = ParseCoordinate(longitude, false);
+    }
+
+    public GeoTags(double latitude, double longitude)
+    {
+        LatitudeValue = latitude;
+        LongitudeValue = longitude;
+        Latitude = FormatCoordinates(latitude, true);
+        Longitude = FormatCoordinates(longitude, false);
     }
 
     public string Latitude { get; }

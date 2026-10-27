@@ -52,9 +52,9 @@ public static class CountryNames
         var countries = new Dictionary<string, string>(StringComparer.Ordinal);
         var brands = new Dictionary<string, string>(StringComparer.Ordinal);
         try {
-            ReadAliases(Read("TagCountries.json"), tags);
-            ReadCountries(Read("Countries.json"), countries);
-            ReadAliases(Read("BrandCountries.json"), brands);
+            ReadAliases(EmbeddedData.Read("TagCountries.json"), tags);
+            ReadCountries(EmbeddedData.Read("Countries.json"), countries);
+            ReadAliases(EmbeddedData.Read("BrandCountries.json"), brands);
         } catch (JsonException) {
             return new Maps(tags, countries, brands);
         } catch (IOException) {
@@ -115,19 +115,6 @@ public static class CountryNames
             }
 
             countries[name.ToLowerInvariant()] = name;
-        }
-    }
-
-    private static string Read(string fileName)
-    {
-        var stream = typeof(CountryNames).Assembly.GetManifestResourceStream(fileName);
-        if (stream == null) {
-            return "";
-        }
-
-        using (stream) {
-            using var reader = new StreamReader(stream);
-            return reader.ReadToEnd();
         }
     }
 

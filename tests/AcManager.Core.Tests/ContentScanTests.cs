@@ -664,6 +664,50 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_track_without_geotags_uses_the_params_list()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-params-").FullName;
+        try {
+            WriteTrack(root, "imola", """{ "name": "Imola" }""");
+            WriteLayout(root, "imola", "gp", """{ "name": "Grand Prix" }""");
+            WriteLayout(root, "imola", "national", """{ "name": "National", "geotags": ["10", "20"] }""");
+            WriteTrack(root, "ks_silverstone", """{ "name": "Silverstone", "geotags": ["1.5", "2.5"] }""");
+            WriteTrack(root, "ks_silverstone1967", """{ "name": "Historic", "geotags": ["91", "1"] }""");
+            WriteTrack(root, "algarve", """{ "name": "Algarve" }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_invalid", """{ "name": "Invalid", "geotags": ["91", "9"] }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var imola = tracks.Single(track => track.Id == "imola");
+            var imolaTags = imola.GeoTags!;
+            Assert.Equal(44.361229, imolaTags.LatitudeValue);
+            Assert.Equal(11.71248, imolaTags.LongitudeValue);
+            Assert.False(imolaTags.IsEmptyOrInvalid);
+            var gp = imola.Layouts[1].GeoTags!;
+            Assert.Equal(44.361229, gp.LatitudeValue);
+            Assert.Equal(11.71248, gp.LongitudeValue);
+            var national = imola.Layouts[2].GeoTags!;
+            Assert.Equal(10d, national.LatitudeValue);
+            Assert.Equal(20d, national.LongitudeValue);
+
+            var silverstone = tracks.Single(track => track.Id == "ks_silverstone").GeoTags!;
+            Assert.Equal(1.5, silverstone.LatitudeValue);
+            Assert.Equal(2.5, silverstone.LongitudeValue);
+
+            var historic = tracks.Single(track => track.Id == "ks_silverstone1967").GeoTags!;
+            Assert.Equal(52.090672, historic.LatitudeValue);
+            Assert.Equal(-1.02193, historic.LongitudeValue);
+            Assert.False(historic.IsEmptyOrInvalid);
+
+            Assert.Null(tracks.Single(track => track.Id == "algarve").GeoTags);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").GeoTags);
+            Assert.True(tracks.Single(track => track.Id == "mod_invalid").GeoTags!.IsEmptyOrInvalid);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void A_car_country_uses_the_country_list()
     {
         var root = Directory.CreateTempSubdirectory("actools-car-country-").FullName;

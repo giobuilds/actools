@@ -86,7 +86,7 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
     /// <summary>Width text of the main layout. Search converts this text to metres.</summary>
     public string? SpecsWidth => Layouts.Count == 0 ? null : Layouts[0].SpecsWidth;
 
-    /// <summary>Geotags of the main layout. The DataProvider latitude list stays unread.</summary>
+    /// <summary>Geotags of the main layout. A missing or invalid pair can come from Track Params.ini.</summary>
     public GeoTags? GeoTags => Layouts.Count == 0 ? null : Layouts[0].GeoTags;
 
     /// <summary>Country of the main layout. A mapped tag fills this when the JSON country is missing.</summary>
@@ -201,7 +201,7 @@ public static class ContentLibrary
                         LengthOf(json),
                         PitboxesOf(json),
                         WidthOf(json),
-                        GeoTags.Read(json),
+                        GeoTagsOf(id, json),
                         CountryOf(json),
                         YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName),
                         TagsOf(json),
@@ -233,7 +233,7 @@ public static class ContentLibrary
                 rootLength = LengthOf(rootElement);
                 rootPitboxes = PitboxesOf(rootElement);
                 rootWidth = WidthOf(rootElement);
-                rootGeoTags = GeoTags.Read(rootElement);
+                rootGeoTags = GeoTagsOf(id, rootElement);
                 rootCountry = CountryOf(rootElement);
                 rootYear = YearOf(rootElement, string.IsNullOrEmpty(trimmedName) ? null : trimmedName);
                 rootTags = TagsOf(rootElement);
@@ -402,6 +402,20 @@ public static class ContentLibrary
     /// The metre conversion stays unread.
     /// </summary>
     private static string? WidthOf(JsonElement? element) => TextOf(element, "width")?.Trim();
+
+    /// <summary>
+    /// JSON geotags win when they parse. Otherwise the track folder id is looked up in
+    /// <c>Track Params.ini</c>. Every layout of that track uses the same section.
+    /// </summary>
+    private static GeoTags? GeoTagsOf(string trackId, JsonElement? element)
+    {
+        var tags = GeoTags.Read(element);
+        if (tags is { IsEmptyOrInvalid: false }) {
+            return tags;
+        }
+
+        return TrackCoordinates.ForTrack(trackId) ?? tags;
+    }
 
     /// <summary>
     /// <c>AcJsonObjectNew.LoadCountry</c>. A present country is normalized with
