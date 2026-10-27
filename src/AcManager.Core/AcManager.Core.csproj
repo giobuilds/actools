@@ -8,4 +8,8 @@
     <ProjectReference Include="../AcTools.Core/AcTools.Core.csproj" />
     <ProjectReference Include="../AcTools.Platform.Abstractions/AcTools.Platform.Abstractions.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Content/Data/Countries.json" LogicalName="Countries.json" />
+    <EmbeddedResource Include="Content/Data/TagCountries.json" LogicalName="TagCountries.json" />
+  </ItemGroup>
 </Project>

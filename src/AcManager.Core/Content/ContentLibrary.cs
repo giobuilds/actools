@@ -89,13 +89,13 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
     /// <summary>Geotags of the main layout. The DataProvider latitude list stays unread.</summary>
     public GeoTags? GeoTags => Layouts.Count == 0 ? null : Layouts[0].GeoTags;
 
-    /// <summary>Country of the main layout. A tag does not fill this value.</summary>
+    /// <summary>Country of the main layout. A mapped tag fills this when the JSON country is missing.</summary>
     public string? Country => Layouts.Count == 0 ? null : Layouts[0].Country;
 
     /// <summary>Year of the main layout. The DataProvider track-year list stays unread.</summary>
     public int? Year => Layouts.Count == 0 ? null : Layouts[0].Year;
 
-    /// <summary>Tags of the main layout. A tag does not fill the country.</summary>
+    /// <summary>Tags of the main layout. A mapped tag can also fill the country.</summary>
     public IReadOnlyList<string> Tags => Layouts.Count == 0 ? [] : Layouts[0].Tags ?? [];
 
     /// <summary>Author of the main layout. <c>Kunos</c> stays empty, and a <c>ks_</c> id does not fill it.</summary>
@@ -202,7 +202,7 @@ public static class ContentLibrary
                         PitboxesOf(json),
                         WidthOf(json),
                         GeoTags.Read(json),
-                        TrackCountryOf(json),
+                        CountryOf(json),
                         YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName),
                         TagsOf(json),
                         TrackAuthorOf(json),
@@ -234,7 +234,7 @@ public static class ContentLibrary
                 rootPitboxes = PitboxesOf(rootElement);
                 rootWidth = WidthOf(rootElement);
                 rootGeoTags = GeoTags.Read(rootElement);
-                rootCountry = TrackCountryOf(rootElement);
+                rootCountry = CountryOf(rootElement);
                 rootYear = YearOf(rootElement, string.IsNullOrEmpty(trimmedName) ? null : trimmedName);
                 rootTags = TagsOf(rootElement);
                 rootAuthor = TrackAuthorOf(rootElement);
@@ -404,10 +404,26 @@ public static class ContentLibrary
     private static string? WidthOf(JsonElement? element) => TextOf(element, "width")?.Trim();
 
     /// <summary>
-    /// <c>AcJsonObjectNew.LoadCountry</c> trims the JSON text. An all-space value becomes empty.
-    /// <c>CountryFromTag</c> stays unread, so a tag does not fill the country.
+    /// <c>AcJsonObjectNew.LoadCountry</c>. A present country is normalized with
+    /// <c>CountryFromTag</c>. When that key is missing, the first mapped tag is used.
+    /// An all-space country stays empty. Brand countries stay unread.
     /// </summary>
-    private static string? TrackCountryOf(JsonElement? element) => TextOf(element, "country")?.Trim();
+    private static string? CountryOf(JsonElement? element)
+    {
+        var value = TextOf(element, "country")?.Trim();
+        if (value != null) {
+            return CountryNames.FromTag(value) ?? value;
+        }
+
+        foreach (var tag in TagsOf(element)) {
+            var country = CountryNames.FromTag(tag);
+            if (country != null) {
+                return country;
+            }
+        }
+
+        return null;
+    }
 
     private static IReadOnlyList<string> TagsOf(JsonElement? element)
     {
@@ -432,12 +448,6 @@ public static class ContentLibrary
         }
 
         return list;
-    }
-
-    private static string? CountryOf(JsonElement? element)
-    {
-        var country = StringOf(element, "country")?.Trim();
-        return string.IsNullOrEmpty(country) ? null : country;
     }
 
     /// <summary>

@@ -663,7 +663,27 @@ public class ContentScanTests
     }
 
     [Fact]
-    public void A_track_country_keeps_the_json_text()
+    public void A_car_country_uses_the_country_list()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-car-country-").FullName;
+        try {
+            WriteCar(root, "mod_italy", """{ "name": "Cup", "country": "italy" }""");
+            WriteCar(root, "mod_alias", """{ "name": "Alias", "tags": ["italia"] }""");
+            WriteCar(root, "mod_plain", """{ "name": "Plain", "tags": ["street"] }""");
+            WriteCar(root, "mod_brand", """{ "name": "Brand", "brand": "Ferrari" }""");
+
+            var cars = ContentLibrary.ScanCars(root);
+            Assert.Equal("Italy", cars.Single(car => car.Id == "mod_italy").Country);
+            Assert.Equal("Italy", cars.Single(car => car.Id == "mod_alias").Country);
+            Assert.Null(cars.Single(car => car.Id == "mod_plain").Country);
+            Assert.Null(cars.Single(car => car.Id == "mod_brand").Country);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void A_track_country_uses_the_country_list()
     {
         var root = Directory.CreateTempSubdirectory("actools-track-country-").FullName;
         try {
@@ -674,8 +694,17 @@ public class ContentScanTests
             WriteTrack(root, "mod_number", """{ "name": "Number", "country": 12 }""");
             WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
             WriteTrack(root, "mod_fromtag", """{ "name": "From Tag", "tags": ["italy"] }""");
+            WriteTrack(root, "mod_alias", """{ "name": "Alias", "tags": ["italia"] }""");
+            WriteTrack(root, "mod_usa", """{ "name": "Usa", "tags": ["california, usa"] }""");
+            WriteTrack(root, "mod_unknown", """{ "name": "Unknown", "country": "Atlantis" }""");
+            WriteTrack(root, "mod_paren", """{ "name": "Paren", "country": "somewhere (italy)" }""");
+            WriteTrack(root, "mod_first", """{ "name": "First", "tags": ["circuit", "japan", "italy"] }""");
+            WriteTrack(root, "mod_uk", """{ "name": "Uk", "country": "uk" }""");
+            WriteTrack(root, "mod_na", """{ "name": "Na", "tags": ["virtual"] }""");
             WriteTrack(root, "mod_cup", """{ "name": "Cup", "country": "Belgium" }""");
             WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix" }""");
+            WriteTrack(root, "mod_child", """{ "name": "Child" }""");
+            WriteLayout(root, "mod_child", "gp", """{ "name": "Grand Prix", "tags": ["italia"] }""");
             WriteTrack(root, "mod_split", """{ "name": "Split", "country": "Belgium" }""");
             WriteLayout(root, "mod_split", "gp", """{ "name": "Grand Prix", "country": "Italy" }""");
             WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "country": "Belgium" }""");
@@ -685,12 +714,23 @@ public class ContentScanTests
             var spa = tracks.Single(track => track.Id == "mod_spa");
             Assert.Equal("Belgium", spa.Country);
             Assert.Equal("Belgium", spa.Layouts[0].Country);
-            Assert.Equal("italy", tracks.Single(track => track.Id == "mod_tag").Country);
+            Assert.Equal("Italy", tracks.Single(track => track.Id == "mod_tag").Country);
             Assert.Null(tracks.Single(track => track.Id == "mod_blank").Country);
             Assert.Equal("", tracks.Single(track => track.Id == "mod_spaces").Country);
             Assert.Equal("12", tracks.Single(track => track.Id == "mod_number").Country);
             Assert.Null(tracks.Single(track => track.Id == "mod_plain").Country);
-            Assert.Null(tracks.Single(track => track.Id == "mod_fromtag").Country);
+            Assert.Equal("Italy", tracks.Single(track => track.Id == "mod_fromtag").Country);
+            Assert.Equal("Italy", tracks.Single(track => track.Id == "mod_alias").Country);
+            Assert.Equal("USA", tracks.Single(track => track.Id == "mod_usa").Country);
+            Assert.Equal("Atlantis", tracks.Single(track => track.Id == "mod_unknown").Country);
+            Assert.Equal("Italy", tracks.Single(track => track.Id == "mod_paren").Country);
+            Assert.Equal("Japan", tracks.Single(track => track.Id == "mod_first").Country);
+            Assert.Equal("Great Britain", tracks.Single(track => track.Id == "mod_uk").Country);
+            Assert.Equal("N/A", tracks.Single(track => track.Id == "mod_na").Country);
+
+            var child = tracks.Single(track => track.Id == "mod_child");
+            Assert.Null(child.Country);
+            Assert.Equal("Italy", child.Layouts[1].Country);
 
             var cup = tracks.Single(track => track.Id == "mod_cup");
             Assert.Equal("Belgium", cup.Country);
@@ -803,14 +843,14 @@ public class ContentScanTests
             var spa = tracks.Single(track => track.Id == "mod_spa");
             Assert.Equal(["circuit", " italy ", "2", "True"], spa.Tags);
             Assert.Equal(["circuit", " italy ", "2", "True"], spa.Layouts[0].Tags);
-            Assert.Null(spa.Country);
+            Assert.Equal("Italy", spa.Country);
             Assert.Empty(tracks.Single(track => track.Id == "mod_plain").Tags);
             Assert.Empty(tracks.Single(track => track.Id == "mod_empty").Tags);
             Assert.Empty(tracks.Single(track => track.Id == "mod_text").Tags);
 
             var fromTag = tracks.Single(track => track.Id == "mod_fromtag");
             Assert.Equal(["italy"], fromTag.Tags);
-            Assert.Null(fromTag.Country);
+            Assert.Equal("Italy", fromTag.Country);
 
             var cup = tracks.Single(track => track.Id == "mod_cup");
             Assert.Equal(["circuit"], cup.Tags);
