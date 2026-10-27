@@ -66,7 +66,8 @@ public sealed record TrackLayout(
     int? Year = null,
     IReadOnlyList<string>? Tags = null,
     string? Author = null,
-    string? Url = null);
+    string? Url = null,
+    double Priority = 0);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
@@ -101,6 +102,9 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
 
     /// <summary>URL of the main layout. A blank value stays empty.</summary>
     public string? Url => Layouts.Count == 0 ? null : Layouts[0].Url;
+
+    /// <summary>Priority of the main layout. A missing priority is 0.</summary>
+    public double Priority => Layouts.Count == 0 ? 0d : Layouts[0].Priority;
 }
 
 public sealed record WeatherSummary(string Id, string Name);
@@ -188,7 +192,7 @@ public static class ContentLibrary
                     found.Add(new TrackLayoutInfo(
                         layoutId,
                         layoutName,
-                        NumberOf(json, "priority"),
+                        PriorityOf(json),
                         version,
                         description,
                         TextOf(json, "city"),
@@ -217,6 +221,7 @@ public static class ContentLibrary
             IReadOnlyList<string>? rootTags;
             string? rootAuthor;
             string? rootUrl;
+            double rootPriority;
             if (rootPresent) {
                 var rootElement = ReadUiObject(rootJson);
                 var trimmedName = StringOf(rootElement, "name")?.Trim();
@@ -232,6 +237,7 @@ public static class ContentLibrary
                 rootTags = TagsOf(rootElement);
                 rootAuthor = TrackAuthorOf(rootElement);
                 rootUrl = UrlOf(rootElement);
+                rootPriority = PriorityOf(rootElement);
             } else {
                 rootName = id;
                 rootVersion = null;
@@ -246,6 +252,7 @@ public static class ContentLibrary
                 rootTags = null;
                 rootAuthor = null;
                 rootUrl = null;
+                rootPriority = 0d;
             }
 
             var layouts = TrackLayoutOrder.Arrange(
@@ -264,7 +271,8 @@ public static class ContentLibrary
                 rootYear,
                 rootTags,
                 rootAuthor,
-                rootUrl);
+                rootUrl,
+                rootPriority);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
@@ -543,6 +551,12 @@ public static class ContentLibrary
         return false;
     }
 
+    /// <summary>
+    /// <c>TrackObjectBase.LoadData</c> reads <c>priority</c> with <c>GetDoubleValueOnly</c>.
+    /// A missing or unreadable value becomes 0.
+    /// </summary>
+    private static double PriorityOf(JsonElement? element) => NumberOf(element, "priority") ?? 0d;
+
     private static double? NumberOf(JsonElement? element, string property)
     {
         if (element == null || element.Value.ValueKind != JsonValueKind.Object) {
@@ -558,7 +572,7 @@ public static class ContentLibrary
         }
 
         if (value.ValueKind == JsonValueKind.String
-            && double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)) {
+            && double.TryParse(value.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)) {
             return parsed;
         }
 

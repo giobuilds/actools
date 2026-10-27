@@ -44,7 +44,8 @@ public static class TrackLayoutOrder
         int? rootYear = null,
         IReadOnlyList<string>? rootTags = null,
         string? rootAuthor = null,
-        string? rootUrl = null)
+        string? rootUrl = null,
+        double rootPriority = 0)
     {
         if (rootPresent) {
             var extras = layouts
@@ -66,7 +67,8 @@ public static class TrackLayoutOrder
                 rootYear,
                 rootTags,
                 rootAuthor,
-                rootUrl));
+                rootUrl,
+                rootPriority));
             return extras;
         }
 
@@ -135,7 +137,8 @@ public static class TrackLayoutOrder
             layout.Year,
             layout.Tags,
             layout.Author,
-            layout.Url);
+            layout.Url,
+            layout.Priority ?? 0d);
 
     private static string Preferred(string trackId, IReadOnlyList<TrackLayoutInfo> layouts)
     {

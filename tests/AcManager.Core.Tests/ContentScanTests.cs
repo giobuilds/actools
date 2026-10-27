@@ -893,6 +893,48 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_track_priority_is_the_json_number()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-priority-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "priority": 2 }""");
+            WriteTrack(root, "mod_text", """{ "name": "Text", "priority": "1.5" }""");
+            WriteTrack(root, "mod_spaces", """{ "name": "Spaces", "priority": "  3 " }""");
+            WriteTrack(root, "mod_grouped", """{ "name": "Grouped", "priority": "1,500" }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "priority": "" }""");
+            WriteTrack(root, "mod_words", """{ "name": "Words", "priority": "high" }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "priority": 4 }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix", "priority": 9 }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "priority": 2 }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal(2d, spa.Priority);
+            Assert.Equal(2d, spa.Layouts[0].Priority);
+            Assert.Equal(1.5, tracks.Single(track => track.Id == "mod_text").Priority);
+            Assert.Equal(3d, tracks.Single(track => track.Id == "mod_spaces").Priority);
+            Assert.Equal(1500d, tracks.Single(track => track.Id == "mod_grouped").Priority);
+            Assert.Equal(0d, tracks.Single(track => track.Id == "mod_blank").Priority);
+            Assert.Equal(0d, tracks.Single(track => track.Id == "mod_words").Priority);
+            Assert.Equal(0d, tracks.Single(track => track.Id == "mod_plain").Priority);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("", cup.Layouts[0].Id);
+            Assert.Equal(4d, cup.Priority);
+            Assert.Equal(9d, cup.Layouts[1].Priority);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("drift", layouts.Layouts[0].Id);
+            Assert.Equal(2d, layouts.Priority);
+            Assert.Equal(0d, layouts.Layouts[1].Priority);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));
