@@ -32,6 +32,10 @@ internal static class CarSpecQuery
 
     public static readonly ITestEntryFactory Seconds = new SecondsFactory();
 
+    public static readonly ITestEntryFactory Units = new MultiplierFactory(UnitsMultiplier);
+
+    internal static bool TryParse(string? text, out double value) => TryNumber(text, out value);
+
     private static bool TryNumber(string? text, out double value)
     {
         if (text != null && double.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out value)) {
@@ -141,6 +145,23 @@ internal static class CarSpecQuery
             case "g":
             case "gram":
                 return 0.001;
+            default:
+                return 1d;
+        }
+    }
+
+    private static double UnitsMultiplier(string? postfix)
+    {
+        switch (postfix) {
+            case "kkk":
+                return 1e9;
+            case "kk":
+                return 1e6;
+            case "k":
+            case "thou":
+                return 1e3;
+            case "hund":
+                return 1e2;
             default:
                 return 1d;
         }

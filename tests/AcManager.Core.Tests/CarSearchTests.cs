@@ -139,6 +139,16 @@ public class CarSearchTests
         Assert.True(Matches("pwratio:5", car));
         Assert.False(Matches("power>0", Mazda));
 
+        var peaked = SpecCar() with { MaxRpm = 7000d };
+        Assert.True(Matches("maxrpm>6000", peaked));
+        Assert.False(Matches("maxrpm>7000", peaked));
+        Assert.True(Matches("maxrpm>6.9k", peaked));
+        Assert.False(Matches("maxrpm>7k", peaked));
+        Assert.True(Matches("maxrpm>6900rpm", peaked));
+        Assert.True(Matches("maxrpm:7000", peaked));
+        Assert.False(Matches("maxrpm>0", Mazda));
+        Assert.True(Matches("maxrpm<1", Mazda));
+
         var labelled = SpecCar(bhp: "650bhp", torque: "300nm", weight: "1250 kg", topSpeed: "250 km/h", acceleration: "5.2", pw: "5");
         Assert.True(Matches("power>600", labelled));
         Assert.False(Matches("power>700", labelled));

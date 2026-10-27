@@ -36,7 +36,8 @@ public sealed record CarSummary(
     string? SpecsPwRatio = null,
     string? Version = null,
     string? Description = null,
-    string? Url = null)
+    string? Url = null,
+    double MaxRpm = 0)
 {
     public string Subtitle
     {
@@ -149,7 +150,8 @@ public static class ContentLibrary
                 SpecOf(json, "pwratio"),
                 version,
                 ContentDescription.Decode(TextOf(json, "description")),
-                UrlOf(json)));
+                UrlOf(json),
+                MaxRpmOf(json)));
         }
 
         cars.Sort(static (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
@@ -488,6 +490,39 @@ public static class ContentLibrary
     {
         var url = TextOf(element, "url")?.Trim();
         return string.IsNullOrWhiteSpace(url) ? null : url;
+    }
+
+    /// <summary>
+    /// <c>CarObject.GetRpmMaxValue</c> reads the highest RPM on the torque curve.
+    /// LoadData always builds that curve, so a missing or empty <c>torqueCurve</c> contributes 0.
+    /// The power curve stays unread for this value.
+    /// </summary>
+    private static double MaxRpmOf(JsonElement? element)
+    {
+        if (!TryObject(element, out var car)
+            || !car.TryGetProperty("torqueCurve", out var curve)
+            || curve.ValueKind != JsonValueKind.Array) {
+            return 0d;
+        }
+
+        double? max = null;
+        foreach (var entry in curve.EnumerateArray()) {
+            if (entry.ValueKind != JsonValueKind.Array || entry.GetArrayLength() != 2) {
+                continue;
+            }
+
+            var xText = TextOf(entry[0]);
+            var yText = TextOf(entry[1]);
+            if (!CarSpecQuery.TryParse(xText, out var x) || !CarSpecQuery.TryParse(yText, out _)) {
+                continue;
+            }
+
+            if (max == null || x > max) {
+                max = x;
+            }
+        }
+
+        return max ?? 0d;
     }
 
     private static string? SpecOf(JsonElement? element, string property)

@@ -121,6 +121,41 @@ public class ContentScanTests
             Assert.Null(cars.Single(car => car.Id == "mod_future").Year);
             Assert.Equal(2005, cars.Single(car => car.Id == "mod_stringyear").Year);
             Assert.Equal(1999, cars.Single(car => car.Id == "mod_broken").Year);
+            Assert.Equal(0d, full.MaxRpm);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void Torque_curve_sets_the_max_rpm()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-rpm-").FullName;
+        try {
+            WriteCar(root, "mod_peak", """
+                {
+                  "name": "Peak",
+                  "torqueCurve": [["500","89"], ["7000","136"], ["1000","123"]],
+                  "powerCurve": [["9000","400"]]
+                }
+                """);
+            WriteCar(root, "mod_numbers", """
+                { "name": "Numbers", "torqueCurve": [[1000, 10], [500, 20]] }
+                """);
+            WriteCar(root, "mod_power", """
+                { "name": "Power", "powerCurve": [["9000","100"]] }
+                """);
+            WriteCar(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteCar(root, "mod_comma", """
+                { "name": "Comma", "torqueCurve": [["7,000","10"], ["6500","nope"], [1, 2, 3]] }
+                """);
+
+            var cars = ContentLibrary.ScanCars(root);
+            Assert.Equal(7000d, cars.Single(car => car.Id == "mod_peak").MaxRpm);
+            Assert.Equal(1000d, cars.Single(car => car.Id == "mod_numbers").MaxRpm);
+            Assert.Equal(0d, cars.Single(car => car.Id == "mod_power").MaxRpm);
+            Assert.Equal(0d, cars.Single(car => car.Id == "mod_plain").MaxRpm);
+            Assert.Equal(7000d, cars.Single(car => car.Id == "mod_comma").MaxRpm);
         } finally {
             Directory.Delete(root, true);
         }
