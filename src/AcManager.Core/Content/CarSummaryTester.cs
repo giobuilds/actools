@@ -6,8 +6,9 @@ namespace AcManager.Core.Content;
 
 /// <summary>
 /// Car search for the fields this app scans from <c>ui_car.json</c>. Plain text matches id, name, brand, and class.
-/// Key names follow Content Manager. <c>parent</c> compares the parent folder id. Specs compare the JSON text,
-/// so a query such as <c>bhp&gt;400</c> reads the number in that text. Unit suffixes such as kW stay for later.
+/// Key names follow Content Manager. <c>parent</c> compares the parent folder id. Power, torque, weight,
+/// top speed, and acceleration read unit suffixes such as kW, ft-lb, t, mph, and ms. The default units are
+/// bhp, Nm, kilograms, kilometres per hour, and seconds. <c>pw</c> compares the JSON text.
 /// </summary>
 public sealed class CarSummaryTester : ITester<CarSummary>
 {
@@ -104,16 +105,21 @@ public sealed class CarSummaryTester : ITester<CarSummary>
                 return value.Test(car.Author == CarAuthors.Kunos);
             case "bhp":
             case "power":
+                value.Set(CarSpecQuery.Power);
                 return value.Test(car.SpecsBhp);
             case "torque":
+                value.Set(CarSpecQuery.Torque);
                 return value.Test(car.SpecsTorque);
             case "weight":
             case "mass":
+                value.Set(CarSpecQuery.Weight);
                 return value.Test(car.SpecsWeight);
             case "acceleration":
+                value.Set(CarSpecQuery.Seconds);
                 return value.Test(car.SpecsAcceleration);
             case "speed":
             case "topspeed":
+                value.Set(CarSpecQuery.Speed);
                 return value.Test(car.SpecsTopSpeed);
             case "pw":
             case "pwratio":

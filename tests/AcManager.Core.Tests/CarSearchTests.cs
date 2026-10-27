@@ -113,6 +113,82 @@ public class CarSearchTests
         Assert.False(Matches("url:https://example.com", Mazda));
     }
 
+    [Fact]
+    public void Spec_queries_convert_unit_suffixes()
+    {
+        var car = SpecCar(bhp: "186 kW", torque: "221 ft-lb", weight: "1.2 t", topSpeed: "155 mph", acceleration: "5200 ms", pw: "5");
+        Assert.True(Matches("power>249", car));
+        Assert.False(Matches("power>250", car));
+        Assert.True(Matches("bhp>249", car));
+        Assert.False(Matches("power>200kw", car));
+        Assert.True(Matches("power>180kw", car));
+        Assert.True(Matches("torque>299", car));
+        Assert.False(Matches("torque>300", car));
+        Assert.False(Matches("torque>250ft-lb", car));
+        Assert.True(Matches("mass>1100", car));
+        Assert.True(Matches("weight<1300", car));
+        Assert.False(Matches("mass>2t", car));
+        Assert.True(Matches("mass>1t", car));
+        Assert.True(Matches("topspeed>249", car));
+        Assert.False(Matches("topspeed>250", car));
+        Assert.False(Matches("topspeed>160mph", car));
+        Assert.True(Matches("acceleration<6", car));
+        Assert.False(Matches("acceleration>5", car));
+        Assert.False(Matches("acceleration<1000ms", car));
+        Assert.True(Matches("pw<6", car));
+        Assert.True(Matches("pwratio:5", car));
+        Assert.False(Matches("power>0", Mazda));
+
+        var labelled = SpecCar(bhp: "650bhp", torque: "300nm", weight: "1250 kg", topSpeed: "250 km/h", acceleration: "5.2", pw: "5");
+        Assert.True(Matches("power>600", labelled));
+        Assert.False(Matches("power>700", labelled));
+        Assert.True(Matches("torque>250", labelled));
+        Assert.True(Matches("mass<1300", labelled));
+        Assert.True(Matches("weight:1250", labelled));
+        Assert.False(Matches("weight:1250", car));
+        Assert.True(Matches("topspeed>249", labelled));
+        Assert.False(Matches("topspeed>250", labelled));
+        Assert.True(Matches("speed:250", labelled));
+        Assert.True(Matches("acceleration<6", labelled));
+        Assert.True(Matches("acceleration<5.1", labelled));
+        Assert.False(Matches("acceleration<5", labelled));
+        Assert.False(Matches("acceleration<0:05.1", labelled));
+        Assert.True(Matches("acceleration=5", labelled));
+        Assert.True(Matches("acceleration=0:05.7", labelled));
+        Assert.False(Matches("acceleration=0:06.5", labelled));
+        Assert.True(Matches("acceleration:5.2", labelled));
+        Assert.False(Matches("acceleration:5.2", car));
+
+        var pounds = SpecCar(weight: "2756 lb");
+        Assert.True(Matches("mass>1250", pounds));
+        Assert.True(Matches("mass<1251", pounds));
+
+        Assert.True(Matches("mass>1000", SpecCar(weight: "1,250")));
+        var grouped = SpecCar(weight: "1,250 kg");
+        Assert.False(Matches("mass>1000", grouped));
+        Assert.True(Matches("mass<2", grouped));
+    }
+
+    private static CarSummary SpecCar(
+        string? bhp = null,
+        string? torque = null,
+        string? weight = null,
+        string? topSpeed = null,
+        string? acceleration = null,
+        string? pw = null) =>
+        new(
+            "mod_spec",
+            "Spec Car",
+            "Spec",
+            "street",
+            [],
+            SpecsBhp: bhp,
+            SpecsTorque: torque,
+            SpecsWeight: weight,
+            SpecsTopSpeed: topSpeed,
+            SpecsAcceleration: acceleration,
+            SpecsPwRatio: pw);
+
     private static bool Matches(string query, CarSummary car) =>
         Filter.Create(CarSummaryTester.Instance, query).Test(car);
 }
