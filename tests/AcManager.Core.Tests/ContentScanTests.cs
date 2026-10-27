@@ -628,6 +628,53 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_track_country_keeps_the_json_text()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-country-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "country": " Belgium " }""");
+            WriteTrack(root, "mod_tag", """{ "name": "Tagged", "country": "italy" }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "country": "" }""");
+            WriteTrack(root, "mod_spaces", """{ "name": "Spaces", "country": "   " }""");
+            WriteTrack(root, "mod_number", """{ "name": "Number", "country": 12 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_fromtag", """{ "name": "From Tag", "tags": ["italy"] }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "country": "Belgium" }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix" }""");
+            WriteTrack(root, "mod_split", """{ "name": "Split", "country": "Belgium" }""");
+            WriteLayout(root, "mod_split", "gp", """{ "name": "Grand Prix", "country": "Italy" }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "country": "Belgium" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "country": "Italy" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal("Belgium", spa.Country);
+            Assert.Equal("Belgium", spa.Layouts[0].Country);
+            Assert.Equal("italy", tracks.Single(track => track.Id == "mod_tag").Country);
+            Assert.Null(tracks.Single(track => track.Id == "mod_blank").Country);
+            Assert.Equal("", tracks.Single(track => track.Id == "mod_spaces").Country);
+            Assert.Equal("12", tracks.Single(track => track.Id == "mod_number").Country);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").Country);
+            Assert.Null(tracks.Single(track => track.Id == "mod_fromtag").Country);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("Belgium", cup.Country);
+            Assert.Null(cup.Layouts[1].Country);
+
+            var split = tracks.Single(track => track.Id == "mod_split");
+            Assert.Equal("Belgium", split.Country);
+            Assert.Equal("Italy", split.Layouts[1].Country);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal("Belgium", layouts.Country);
+            Assert.Equal("Italy", layouts.Layouts[1].Country);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));

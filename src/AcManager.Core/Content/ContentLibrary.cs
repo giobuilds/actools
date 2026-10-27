@@ -61,7 +61,8 @@ public sealed record TrackLayout(
     string? SpecsLength = null,
     string? SpecsPitboxes = null,
     string? SpecsWidth = null,
-    GeoTags? GeoTags = null);
+    GeoTags? GeoTags = null,
+    string? Country = null);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
@@ -81,6 +82,9 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
 
     /// <summary>Geotags of the main layout. The DataProvider latitude list stays unread.</summary>
     public GeoTags? GeoTags => Layouts.Count == 0 ? null : Layouts[0].GeoTags;
+
+    /// <summary>Country of the main layout. A tag does not fill this value.</summary>
+    public string? Country => Layouts.Count == 0 ? null : Layouts[0].Country;
 }
 
 public sealed record WeatherSummary(string Id, string Name);
@@ -177,7 +181,8 @@ public static class ContentLibrary
                         LengthOf(json),
                         PitboxesOf(json),
                         WidthOf(json),
-                        GeoTags.Read(json)));
+                        GeoTags.Read(json),
+                        TrackCountryOf(json)));
                 }
             }
 
@@ -189,6 +194,7 @@ public static class ContentLibrary
             string? rootPitboxes;
             string? rootWidth;
             GeoTags? rootGeoTags;
+            string? rootCountry;
             if (rootPresent) {
                 var rootElement = ReadUiObject(rootJson);
                 (rootName, rootVersion) = SplitVersion(id, StringOf(rootElement, "name")?.Trim(), TextOf(rootElement, "version"));
@@ -198,6 +204,7 @@ public static class ContentLibrary
                 rootPitboxes = PitboxesOf(rootElement);
                 rootWidth = WidthOf(rootElement);
                 rootGeoTags = GeoTags.Read(rootElement);
+                rootCountry = TrackCountryOf(rootElement);
             } else {
                 rootName = id;
                 rootVersion = null;
@@ -207,6 +214,7 @@ public static class ContentLibrary
                 rootPitboxes = null;
                 rootWidth = null;
                 rootGeoTags = null;
+                rootCountry = null;
             }
 
             var layouts = TrackLayoutOrder.Arrange(
@@ -220,7 +228,8 @@ public static class ContentLibrary
                 rootLength,
                 rootPitboxes,
                 rootWidth,
-                rootGeoTags);
+                rootGeoTags,
+                rootCountry);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
@@ -348,6 +357,12 @@ public static class ContentLibrary
     /// The metre conversion stays unread.
     /// </summary>
     private static string? WidthOf(JsonElement? element) => TextOf(element, "width")?.Trim();
+
+    /// <summary>
+    /// <c>AcJsonObjectNew.LoadCountry</c> trims the JSON text. An all-space value becomes empty.
+    /// <c>CountryFromTag</c> stays unread, so a tag does not fill the country.
+    /// </summary>
+    private static string? TrackCountryOf(JsonElement? element) => TextOf(element, "country")?.Trim();
 
     private static IReadOnlyList<string> TagsOf(JsonElement? element)
     {
