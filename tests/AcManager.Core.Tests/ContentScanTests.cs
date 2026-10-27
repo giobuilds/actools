@@ -675,6 +675,79 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_track_year_comes_from_the_json_then_the_name()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-year-").FullName;
+        try {
+            WriteTrack(root, "mod_json", """{ "name": "Cup '16", "year": 1991 }""");
+            WriteTrack(root, "mod_string", """{ "name": "Old '16", "year": "2005" }""");
+            WriteTrack(root, "mod_name", """{ "name": "Cup '16" }""");
+            WriteTrack(root, "mod_old", """{ "name": "Cup '18" }""");
+            WriteTrack(root, "mod_curly", """{ "name": "Alfa ’95" }""");
+            WriteTrack(root, "mod_id", """{ "name": "Brands Hatch 2018" }""");
+            WriteTrack(root, "mod_future", """{ "name": "Sepang 2026" }""");
+            WriteTrack(root, "mod_version", """{ "name": "Heritage '16 v2.0" }""");
+            WriteTrack(root, "mod_both", """{ "name": "Heritage '16 v2.0", "year": 2016 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Cup '67", "year": "" }""");
+            WriteTrack(root, "cup_2016", """{ }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Imola", "year": 1991 }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix" }""");
+            WriteTrack(root, "mod_split", """{ "name": "Cup '16" }""");
+            WriteLayout(root, "mod_split", "gp", """{ "name": "Grand Prix", "year": 2001 }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix '16" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift '67" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var json = tracks.Single(track => track.Id == "mod_json");
+            Assert.Equal(1991, json.Year);
+            Assert.Equal("Cup '16", json.Name);
+            Assert.Equal(1991, json.Layouts[0].Year);
+            Assert.Equal(2005, tracks.Single(track => track.Id == "mod_string").Year);
+            Assert.Equal(2016, tracks.Single(track => track.Id == "mod_name").Year);
+            Assert.Equal(1918, tracks.Single(track => track.Id == "mod_old").Year);
+            Assert.Equal(1995, tracks.Single(track => track.Id == "mod_curly").Year);
+            Assert.Equal(2018, tracks.Single(track => track.Id == "mod_id").Year);
+
+            var future = tracks.Single(track => track.Id == "mod_future");
+            Assert.Null(future.Year);
+            Assert.Equal("Sepang 2026", future.Name);
+
+            var version = tracks.Single(track => track.Id == "mod_version");
+            Assert.Equal("Heritage '16", version.Name);
+            Assert.Equal("2.0", version.Layouts[0].Version);
+            Assert.Null(version.Year);
+
+            var both = tracks.Single(track => track.Id == "mod_both");
+            Assert.Equal("Heritage '16", both.Name);
+            Assert.Equal("2.0", both.Layouts[0].Version);
+            Assert.Equal(2016, both.Year);
+
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").Year);
+            Assert.Equal(1967, tracks.Single(track => track.Id == "mod_blank").Year);
+
+            var folder = tracks.Single(track => track.Id == "cup_2016");
+            Assert.Equal("cup_2016", folder.Name);
+            Assert.Null(folder.Year);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal(1991, cup.Year);
+            Assert.Null(cup.Layouts[1].Year);
+
+            var split = tracks.Single(track => track.Id == "mod_split");
+            Assert.Equal(2016, split.Year);
+            Assert.Equal(2001, split.Layouts[1].Year);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal(2016, layouts.Year);
+            Assert.Equal(1967, layouts.Layouts[1].Year);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));

@@ -62,7 +62,8 @@ public sealed record TrackLayout(
     string? SpecsPitboxes = null,
     string? SpecsWidth = null,
     GeoTags? GeoTags = null,
-    string? Country = null);
+    string? Country = null,
+    int? Year = null);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
@@ -85,6 +86,9 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
 
     /// <summary>Country of the main layout. A tag does not fill this value.</summary>
     public string? Country => Layouts.Count == 0 ? null : Layouts[0].Country;
+
+    /// <summary>Year of the main layout. The DataProvider track-year list stays unread.</summary>
+    public int? Year => Layouts.Count == 0 ? null : Layouts[0].Year;
 }
 
 public sealed record WeatherSummary(string Id, string Name);
@@ -166,10 +170,8 @@ public static class ContentLibrary
 
                     var json = ReadUiObject(layoutJson);
                     var layoutId = Path.GetFileName(layoutDirectory);
-                    var (layoutName, layoutVersion) = SplitVersion(
-                        layoutId,
-                        StringOf(json, "name")?.Trim(),
-                        TextOf(json, "version"));
+                    var trimmedName = StringOf(json, "name")?.Trim();
+                    var (layoutName, layoutVersion) = SplitVersion(layoutId, trimmedName, TextOf(json, "version"));
                     var (version, description) = DescriptionVersion(layoutVersion, json);
                     found.Add(new TrackLayoutInfo(
                         layoutId,
@@ -182,7 +184,8 @@ public static class ContentLibrary
                         PitboxesOf(json),
                         WidthOf(json),
                         GeoTags.Read(json),
-                        TrackCountryOf(json)));
+                        TrackCountryOf(json),
+                        YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName)));
                 }
             }
 
@@ -195,9 +198,11 @@ public static class ContentLibrary
             string? rootWidth;
             GeoTags? rootGeoTags;
             string? rootCountry;
+            int? rootYear;
             if (rootPresent) {
                 var rootElement = ReadUiObject(rootJson);
-                (rootName, rootVersion) = SplitVersion(id, StringOf(rootElement, "name")?.Trim(), TextOf(rootElement, "version"));
+                var trimmedName = StringOf(rootElement, "name")?.Trim();
+                (rootName, rootVersion) = SplitVersion(id, trimmedName, TextOf(rootElement, "version"));
                 (rootVersion, rootDescription) = DescriptionVersion(rootVersion, rootElement);
                 rootCity = TextOf(rootElement, "city");
                 rootLength = LengthOf(rootElement);
@@ -205,6 +210,7 @@ public static class ContentLibrary
                 rootWidth = WidthOf(rootElement);
                 rootGeoTags = GeoTags.Read(rootElement);
                 rootCountry = TrackCountryOf(rootElement);
+                rootYear = YearOf(rootElement, string.IsNullOrEmpty(trimmedName) ? null : trimmedName);
             } else {
                 rootName = id;
                 rootVersion = null;
@@ -215,6 +221,7 @@ public static class ContentLibrary
                 rootWidth = null;
                 rootGeoTags = null;
                 rootCountry = null;
+                rootYear = null;
             }
 
             var layouts = TrackLayoutOrder.Arrange(
@@ -229,7 +236,8 @@ public static class ContentLibrary
                 rootPitboxes,
                 rootWidth,
                 rootGeoTags,
-                rootCountry);
+                rootCountry,
+                rootYear);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
@@ -395,6 +403,11 @@ public static class ContentLibrary
         return string.IsNullOrEmpty(country) ? null : country;
     }
 
+    /// <summary>
+    /// JSON year first, then the year at the end of <paramref name="name"/>.
+    /// The DataProvider year lists stay unread. <paramref name="name"/> is the
+    /// trimmed JSON name before a trailing version is removed.
+    /// </summary>
     private static int? YearOf(JsonElement? element, string? name)
     {
         var year = IntOf(element, "year");
