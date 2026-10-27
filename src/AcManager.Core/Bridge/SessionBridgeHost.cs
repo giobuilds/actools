@@ -11,6 +11,7 @@ public interface ISessionFrameSink
 
 /// <summary>
 /// Speaks the AcBridge protocol on 127.0.0.1. A client that leaves is dropped so the next visit can connect.
+/// Each new client receives the latest physics, graphics, and static pages, including a page the previous socket already took.
 /// </summary>
 public sealed class SessionBridgeHost : ISessionFrameSink, IDisposable
 {
@@ -22,6 +23,8 @@ public sealed class SessionBridgeHost : ISessionFrameSink, IDisposable
         SingleReader = true,
         FullMode = BoundedChannelFullMode.DropOldest,
     });
+    private readonly object _latestGate = new();
+    private readonly byte[]?[] _latest = new byte[4][];
     private readonly CancellationTokenSource _cancel = new();
     private readonly Task _serve;
 
@@ -45,7 +48,14 @@ public sealed class SessionBridgeHost : ISessionFrameSink, IDisposable
 
     public void Publish(byte type, int packetId, ReadOnlySpan<byte> payload)
     {
-        _frames.Writer.TryWrite(SessionBridgeProtocol.EncodeFrame(type, packetId, payload));
+        var frame = SessionBridgeProtocol.EncodeFrame(type, packetId, payload);
+        if (type is SessionBridgeProtocol.Physics or SessionBridgeProtocol.Graphics or SessionBridgeProtocol.Static) {
+            lock (_latestGate) {
+                _latest[type] = frame;
+            }
+        }
+
+        _frames.Writer.TryWrite(frame);
     }
 
     public void Dispose()
@@ -88,8 +98,16 @@ public sealed class SessionBridgeHost : ISessionFrameSink, IDisposable
         client.NoDelay = true;
         await using var stream = client.GetStream();
         await stream.WriteAsync(_hello, _cancel.Token);
+        foreach (var frame in LatestFrames()) {
+            await stream.WriteAsync(frame, _cancel.Token);
+        }
+
         while (!_cancel.IsCancellationRequested) {
-            while (_frames.Reader.TryRead(out var frame)) {
+            if (ClientLeft(client)) {
+                return;
+            }
+
+            while (!ClientLeft(client) && _frames.Reader.TryRead(out var frame)) {
                 await stream.WriteAsync(frame, _cancel.Token);
             }
 
@@ -98,6 +116,38 @@ public sealed class SessionBridgeHost : ISessionFrameSink, IDisposable
             }
 
             await Task.Delay(20, _cancel.Token);
+        }
+    }
+
+    private byte[][] LatestFrames()
+    {
+        lock (_latestGate) {
+            var count = 0;
+            for (var i = 0; i < _latest.Length; i++) {
+                if (_latest[i] != null) {
+                    count++;
+                }
+            }
+
+            var frames = new byte[count][];
+            var index = 0;
+            for (var i = 0; i < _latest.Length; i++) {
+                var frame = _latest[i];
+                if (frame != null) {
+                    frames[index++] = frame;
+                }
+            }
+
+            return frames;
+        }
+    }
+
+    private static bool ClientLeft(TcpClient client)
+    {
+        try {
+            return client.Client.Poll(0, SelectMode.SelectRead) && client.Client.Available == 0;
+        } catch (Exception ex) when (ex is SocketException or ObjectDisposedException) {
+            return true;
         }
     }
 

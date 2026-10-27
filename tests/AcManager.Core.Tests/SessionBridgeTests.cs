@@ -76,6 +76,38 @@ public class SessionBridgeTests
     }
 
     [Fact]
+    public void Next_client_reads_the_latest_frame_after_the_previous_socket_took_it()
+    {
+        using var host = new SessionBridgeHost();
+        var first = new byte[AcSharedLayout.PhysicsSize];
+        BinaryPrimitives.WriteInt32LittleEndian(first.AsSpan(AcSharedLayout.GearOffset), 2);
+        BinaryPrimitives.WriteSingleLittleEndian(first.AsSpan(AcSharedLayout.SpeedOffset), 10f);
+        host.Publish(SessionBridgeProtocol.Physics, 1, first);
+
+        using var stuck = new TcpClient();
+        stuck.Connect(IPAddress.Loopback, host.Port);
+        Drain(stuck);
+
+        var second = new byte[AcSharedLayout.PhysicsSize];
+        BinaryPrimitives.WriteInt32LittleEndian(second.AsSpan(AcSharedLayout.GearOffset), 3);
+        BinaryPrimitives.WriteSingleLittleEndian(second.AsSpan(AcSharedLayout.SpeedOffset), 142.5f);
+        host.Publish(SessionBridgeProtocol.Physics, 2, second);
+
+        var frameBytes = 9 + AcSharedLayout.PhysicsSize;
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+        while (stuck.Available < frameBytes && DateTime.UtcNow < deadline) {
+            Thread.Sleep(10);
+        }
+
+        Assert.True(stuck.Available >= frameBytes);
+        stuck.Close();
+
+        var later = new SessionBridgeClient(host.Port, TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(200)).ReadNote();
+        Assert.Contains("gear 2", later, StringComparison.Ordinal);
+        Assert.Contains("142.5 km/h", later, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Client_refuses_a_hello_whose_page_size_does_not_match()
     {
         using var host = new SessionBridgeHost(physicsSize: 4);
@@ -94,5 +126,23 @@ public class SessionBridgeTests
         var note = new SessionBridgeClient(port, TimeSpan.FromMilliseconds(200), TimeSpan.FromMilliseconds(50)).ReadNote();
 
         Assert.Equal(SessionBridgeProtocol.OffNote, note);
+    }
+
+    private static void Drain(TcpClient client)
+    {
+        var stream = client.GetStream();
+        var buffer = new byte[4096];
+        var idle = 0;
+        while (idle < 3) {
+            if (client.Available == 0) {
+                Thread.Sleep(20);
+                idle++;
+                continue;
+            }
+
+            idle = 0;
+            var count = stream.Read(buffer, 0, Math.Min(buffer.Length, client.Available));
+            Assert.NotEqual(0, count);
+        }
     }
 }
