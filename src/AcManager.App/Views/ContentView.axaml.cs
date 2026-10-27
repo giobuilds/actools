@@ -20,9 +20,9 @@ public partial class ContentView : UserControl
         }
 
         var files = await top.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions {
-            Title = "Car or track zip",
+            Title = "Car or track archive",
             AllowMultiple = false,
-            FileTypeFilter = [new FilePickerFileType("Zip archive") { Patterns = ["*.zip"] }],
+            FileTypeFilter = [new FilePickerFileType("Zip or 7z archive") { Patterns = ["*.zip", "*.7z"] }],
         });
         if (files.Count == 0) {
             return;

@@ -16,7 +16,7 @@ public partial class ContentViewModel : ObservableObject
     private string _archivePath = "";
 
     [ObservableProperty]
-    private string _status = "Choose a .zip that contains a car or a track.";
+    private string _status = "Choose a .zip or .7z that contains a car or a track.";
 
     [ObservableProperty]
     private string _removalNote = "Set the game folder on the Install page before removing content.";
@@ -108,12 +108,14 @@ public partial class ContentViewModel : ObservableObject
 
         var path = ArchivePath.Trim();
         if (path.Length == 0) {
-            Status = "Choose a .zip file.";
+            Status = "Choose a .zip or .7z file.";
             return;
         }
 
-        if (!path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) {
-            Status = "Only .zip archives can be installed. 7z is not supported yet.";
+        var zip = path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+        var sevenZip = path.EndsWith(".7z", StringComparison.OrdinalIgnoreCase);
+        if (!zip && !sevenZip) {
+            Status = "Only .zip and .7z archives can be installed.";
             return;
         }
 
@@ -126,7 +128,9 @@ public partial class ContentViewModel : ObservableObject
         BeginBusy();
         Status = "Installing…";
         try {
-            var result = await Task.Run(() => ContentArchiveInstaller.Install(path, gameRoot));
+            var result = zip
+                ? await Task.Run(() => ContentArchiveInstaller.Install(path, gameRoot))
+                : await ContentArchiveInstaller.InstallSevenZipAsync(path, gameRoot);
             Status = Describe(result);
             if (result.Installed.Count > 0) {
                 Reload();
