@@ -568,6 +568,66 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_track_geotags_come_from_two_strings()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-geotags-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "geotags": ["45.5", "9.2"] }""");
+            WriteTrack(root, "mod_south", """{ "name": "South", "geotags": ["45.5 S", "9.2 W"] }""");
+            WriteTrack(root, "mod_comma", """{ "name": "Comma", "geotags": ["45,5", "9,25"] }""");
+            WriteTrack(root, "mod_packed", """{ "name": "Packed", "geotags": ["4530", "920"] }""");
+            WriteTrack(root, "mod_invalid", """{ "name": "Invalid", "geotags": ["91", "9"] }""");
+            WriteTrack(root, "mod_numbers", """{ "name": "Numbers", "geotags": [45.5, 9.2] }""");
+            WriteTrack(root, "mod_three", """{ "name": "Three", "geotags": ["45", "9", "0"] }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "geotags": ["45.5", "9.2"] }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix", "geotags": ["46.5", "8.2"] }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "geotags": ["52.0", "-1.0"] }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "geotags": ["51.0", "-0.5"] }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal(45.5, spa.GeoTags!.LatitudeValue);
+            Assert.Equal(9.2, spa.GeoTags.LongitudeValue);
+            Assert.False(spa.GeoTags.IsEmptyOrInvalid);
+            Assert.Equal("45° 30′ 00″ N, 9° 12′ 59″ E", spa.GeoTags.ToString());
+            Assert.Equal(45.5, spa.Layouts[0].GeoTags!.LatitudeValue);
+
+            var south = tracks.Single(track => track.Id == "mod_south").GeoTags!;
+            Assert.Equal(-45.5, south.LatitudeValue);
+            Assert.Equal(-9.2, south.LongitudeValue);
+
+            var comma = tracks.Single(track => track.Id == "mod_comma").GeoTags!;
+            Assert.Equal(45.5, comma.LatitudeValue);
+            Assert.Equal(9.25, comma.LongitudeValue);
+
+            var packed = tracks.Single(track => track.Id == "mod_packed").GeoTags!;
+            Assert.Equal(45.5, packed.LatitudeValue);
+            Assert.Equal(9 + 20d / 60d, packed.LongitudeValue);
+
+            var invalid = tracks.Single(track => track.Id == "mod_invalid").GeoTags!;
+            Assert.True(invalid.IsEmptyOrInvalid);
+            Assert.Equal("", invalid.ToString());
+
+            Assert.Null(tracks.Single(track => track.Id == "mod_numbers").GeoTags);
+            Assert.Null(tracks.Single(track => track.Id == "mod_three").GeoTags);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").GeoTags);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal(45.5, cup.GeoTags!.LatitudeValue);
+            Assert.Equal(46.5, cup.Layouts[1].GeoTags!.LatitudeValue);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal(52.0, layouts.GeoTags!.LatitudeValue);
+            Assert.Equal(-1.0, layouts.GeoTags.LongitudeValue);
+            Assert.Equal(51.0, layouts.Layouts[1].GeoTags!.LatitudeValue);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));

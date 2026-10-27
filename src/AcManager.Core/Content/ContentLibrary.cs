@@ -60,7 +60,8 @@ public sealed record TrackLayout(
     string? City = null,
     string? SpecsLength = null,
     string? SpecsPitboxes = null,
-    string? SpecsWidth = null);
+    string? SpecsWidth = null,
+    GeoTags? GeoTags = null);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
@@ -77,6 +78,9 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
 
     /// <summary>Width text of the main layout. The metre conversion stays unread.</summary>
     public string? SpecsWidth => Layouts.Count == 0 ? null : Layouts[0].SpecsWidth;
+
+    /// <summary>Geotags of the main layout. The DataProvider latitude list stays unread.</summary>
+    public GeoTags? GeoTags => Layouts.Count == 0 ? null : Layouts[0].GeoTags;
 }
 
 public sealed record WeatherSummary(string Id, string Name);
@@ -172,7 +176,8 @@ public static class ContentLibrary
                         TextOf(json, "city"),
                         LengthOf(json),
                         PitboxesOf(json),
-                        WidthOf(json)));
+                        WidthOf(json),
+                        GeoTags.Read(json)));
                 }
             }
 
@@ -183,6 +188,7 @@ public static class ContentLibrary
             string? rootLength;
             string? rootPitboxes;
             string? rootWidth;
+            GeoTags? rootGeoTags;
             if (rootPresent) {
                 var rootElement = ReadUiObject(rootJson);
                 (rootName, rootVersion) = SplitVersion(id, StringOf(rootElement, "name")?.Trim(), TextOf(rootElement, "version"));
@@ -191,6 +197,7 @@ public static class ContentLibrary
                 rootLength = LengthOf(rootElement);
                 rootPitboxes = PitboxesOf(rootElement);
                 rootWidth = WidthOf(rootElement);
+                rootGeoTags = GeoTags.Read(rootElement);
             } else {
                 rootName = id;
                 rootVersion = null;
@@ -199,6 +206,7 @@ public static class ContentLibrary
                 rootLength = null;
                 rootPitboxes = null;
                 rootWidth = null;
+                rootGeoTags = null;
             }
 
             var layouts = TrackLayoutOrder.Arrange(
@@ -211,7 +219,8 @@ public static class ContentLibrary
                 rootCity,
                 rootLength,
                 rootPitboxes,
-                rootWidth);
+                rootWidth,
+                rootGeoTags);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
