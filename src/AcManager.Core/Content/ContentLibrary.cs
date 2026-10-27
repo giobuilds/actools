@@ -98,7 +98,7 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
     /// <summary>Tags of the main layout. A mapped tag can also fill the country.</summary>
     public IReadOnlyList<string> Tags => Layouts.Count == 0 ? [] : Layouts[0].Tags ?? [];
 
-    /// <summary>Author of the main layout. <c>Kunos</c> stays empty, and a <c>ks_</c> id does not fill it.</summary>
+    /// <summary>Author of the main layout. A listed track or layout id is Kunos. A <c>ks_</c> id that is not listed stays empty.</summary>
     public string? Author => Layouts.Count == 0 ? null : Layouts[0].Author;
 
     /// <summary>URL of the main layout. A blank value stays empty.</summary>
@@ -205,7 +205,7 @@ public static class ContentLibrary
                         CountryOf(json),
                         YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName, ContentYears.ForTrack(id)),
                         TagsOf(json),
-                        TrackAuthorOf(json),
+                        TrackAuthorOf(json, id, layoutId),
                         UrlOf(json)));
                 }
             }
@@ -237,7 +237,7 @@ public static class ContentLibrary
                 rootCountry = CountryOf(rootElement);
                 rootYear = YearOf(rootElement, string.IsNullOrEmpty(trimmedName) ? null : trimmedName, ContentYears.ForTrack(id));
                 rootTags = TagsOf(rootElement);
-                rootAuthor = TrackAuthorOf(rootElement);
+                rootAuthor = TrackAuthorOf(rootElement, id, "");
                 rootUrl = UrlOf(rootElement);
                 rootPriority = PriorityOf(rootElement);
             } else {
@@ -513,11 +513,17 @@ public static class ContentLibrary
     }
 
     /// <summary>
-    /// <c>AcJsonObjectNew.LoadVersionInfo</c> trims the JSON text. An all-space value becomes empty.
-    /// <c>Kunos</c> becomes empty. The official-track list stays unread, so a <c>ks_</c> id does not fill the author.
+    /// <c>AcJsonObjectNew.LoadVersionInfo</c>. A listed id is <c>Kunos</c> even when the JSON
+    /// names someone else. Otherwise the text is trimmed and <c>Kunos</c> becomes empty.
+    /// An empty layout id is the root <c>ui_track.json</c> and uses the track list.
+    /// A layout folder uses <c>track/layout</c>. A <c>ks_</c> id that is not listed stays unofficial.
     /// </summary>
-    private static string? TrackAuthorOf(JsonElement? element)
+    private static string? TrackAuthorOf(JsonElement? element, string trackId, string layoutId)
     {
+        if (OfficialTracks.IsOfficial(trackId, layoutId)) {
+            return CarAuthors.Kunos;
+        }
+
         var author = TextOf(element, "author")?.Trim();
         if (author == null || author == CarAuthors.Kunos) {
             return null;

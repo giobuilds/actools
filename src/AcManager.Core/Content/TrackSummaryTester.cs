@@ -8,7 +8,7 @@ namespace AcManager.Core.Content;
 /// Track search for the fields scanned from <c>ui_track.json</c>. Plain text matches the folder id and a layout name.
 /// Key names follow Content Manager. A query matches when any layout matches. Length is compared in kilometres and
 /// width in metres. Pit boxes use the number in the text, and a missing pit box is not 2. A missing length compares as 0 km.
-/// <c>kunos+</c> is true only when the stored author is exactly Kunos. The scanner clears that word, and the official-track list stays unread.
+/// <c>kunos+</c> is true only when the stored author is exactly Kunos. The scanner stores that name for a listed track or layout id.
 /// </summary>
 public sealed class TrackSummaryTester : ITester<TrackSummary>
 {

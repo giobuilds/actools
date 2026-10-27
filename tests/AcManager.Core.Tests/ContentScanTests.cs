@@ -1,4 +1,5 @@
 using AcManager.Core.Content;
+using StringBasedFilter;
 using Xunit;
 
 namespace AcManager.Core.Tests;
@@ -953,6 +954,50 @@ public class ContentScanTests
             Assert.Equal(["drift", "False"], layouts.Layouts[1].Tags);
         } finally {
             Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void A_listed_track_or_layout_is_kunos()
+    {
+        Assert.False(OfficialTrackList.FromJson("").IsOfficial("imola", ""));
+        Assert.False(OfficialTrackList.FromJson("{").IsOfficial("ks_brands_hatch", "gp"));
+        Assert.True(OfficialTracks.IsOfficial("imola", ""));
+        Assert.True(OfficialTracks.IsOfficial("ks_brands_hatch", "gp"));
+        Assert.False(OfficialTracks.IsOfficial("ks_monza", ""));
+        Assert.False(OfficialTracks.IsOfficial("imola", "gp"));
+
+        var root = Directory.CreateTempSubdirectory("actools-official-tracks-").FullName;
+        var layoutsOnly = Directory.CreateTempSubdirectory("actools-official-layouts-").FullName;
+        try {
+            WriteTrack(root, "imola", """{ "name": "Imola", "author": "Someone" }""");
+            WriteTrack(root, "ks_brands_hatch", """{ "name": "Brands Hatch", "author": "Someone" }""");
+            WriteLayout(root, "ks_brands_hatch", "gp", """{ "name": "Grand Prix", "author": "Layout Team" }""");
+            WriteLayout(root, "ks_brands_hatch", "club", """{ "name": "Club", "author": "Club Team" }""");
+            WriteTrack(root, "ks_monza", """{ "name": "Monza", "author": "Someone" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var imola = tracks.Single(track => track.Id == "imola");
+            Assert.Equal(CarAuthors.Kunos, imola.Author);
+            Assert.True(Filter.Create(TrackSummaryTester.Instance, "kunos+").Test(imola));
+
+            var brands = tracks.Single(track => track.Id == "ks_brands_hatch");
+            Assert.Equal(CarAuthors.Kunos, brands.Layouts.Single(layout => layout.Id == "").Author);
+            Assert.Equal(CarAuthors.Kunos, brands.Layouts.Single(layout => layout.Id == "gp").Author);
+            Assert.Equal("Club Team", brands.Layouts.Single(layout => layout.Id == "club").Author);
+
+            var monza = tracks.Single(track => track.Id == "ks_monza");
+            Assert.Equal("Someone", monza.Author);
+            Assert.False(Filter.Create(TrackSummaryTester.Instance, "kunos+").Test(monza));
+
+            WriteLayout(layoutsOnly, "imola", "gp", """{ "name": "Grand Prix", "author": "Someone" }""");
+            WriteLayout(layoutsOnly, "ks_brands_hatch", "gp", """{ "name": "Grand Prix", "author": "Someone" }""");
+            var folders = ContentLibrary.ScanTracks(layoutsOnly);
+            Assert.Equal("Someone", folders.Single(track => track.Id == "imola").Author);
+            Assert.Equal(CarAuthors.Kunos, folders.Single(track => track.Id == "ks_brands_hatch").Author);
+        } finally {
+            Directory.Delete(root, true);
+            Directory.Delete(layoutsOnly, true);
         }
     }
 

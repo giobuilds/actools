@@ -14,5 +14,6 @@
     <EmbeddedResource Include="Content/Data/BrandCountries.json" LogicalName="BrandCountries.json" />
     <EmbeddedResource Include="Content/Data/Track Params.ini" LogicalName="Track Params.ini" />
     <EmbeddedResource Include="Content/Data/Years.json" LogicalName="Years.json" />
+    <EmbeddedResource Include="Content/Data/KunosContent.json" LogicalName="KunosContent.json" />
   </ItemGroup>
 </Project>
