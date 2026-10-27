@@ -55,7 +55,8 @@
         </ComboBox>
 
         <TextBlock Text="Track" />
-        <ComboBox ItemsSource="{Binding Tracks}" SelectedItem="{Binding SelectedTrack}" HorizontalAlignment="Stretch" PlaceholderText="No tracks">
+        <TextBox PlaceholderText="Search tracks, city:, country:, tag:, year:, len:" Text="{Binding TrackFilter}" />
+        <ComboBox ItemsSource="{Binding FilteredTracks}" SelectedItem="{Binding SelectedTrack}" HorizontalAlignment="Stretch" PlaceholderText="No tracks">
           <ComboBox.ItemTemplate>
             <DataTemplate x:DataType="content:TrackSummary">
               <TextBlock Text="{Binding Name}" />

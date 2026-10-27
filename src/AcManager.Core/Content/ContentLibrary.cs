@@ -76,13 +76,13 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
     /// <summary>City of the main layout. Content Manager stores city on each layout.</summary>
     public string? City => Layouts.Count == 0 ? null : Layouts[0].City;
 
-    /// <summary>Length text of the main layout. The kilometre conversion stays unread.</summary>
+    /// <summary>Length text of the main layout. Search converts this text to kilometres.</summary>
     public string? SpecsLength => Layouts.Count == 0 ? null : Layouts[0].SpecsLength;
 
-    /// <summary>Pit box text of the main layout. The numeric parse stays unread.</summary>
+    /// <summary>Pit box text of the main layout. Search reads the number in the text. A missing value is not 2.</summary>
     public string? SpecsPitboxes => Layouts.Count == 0 ? null : Layouts[0].SpecsPitboxes;
 
-    /// <summary>Width text of the main layout. The metre conversion stays unread.</summary>
+    /// <summary>Width text of the main layout. Search converts this text to metres.</summary>
     public string? SpecsWidth => Layouts.Count == 0 ? null : Layouts[0].SpecsWidth;
 
     /// <summary>Geotags of the main layout. The DataProvider latitude list stays unread.</summary>

@@ -22,8 +22,13 @@ public partial class DriveViewModel : ObservableObject
 
     public ObservableCollection<CarSummary> FilteredCars { get; } = [];
 
+    public ObservableCollection<TrackSummary> FilteredTracks { get; } = [];
+
     [ObservableProperty]
     private string _filter = "";
+
+    [ObservableProperty]
+    private string _trackFilter = "";
 
     [ObservableProperty]
     private CarSummary? _selectedCar;
@@ -147,6 +152,7 @@ public partial class DriveViewModel : ObservableObject
         SelectedTrack = Tracks.FirstOrDefault();
         SelectedWeather = Weather.FirstOrDefault(item => item.Id == "3_clear") ?? Weather.FirstOrDefault();
         ApplyFilter();
+        ApplyTrackFilter();
         DriveCommand.NotifyCanExecuteChanged();
         if (!LibraryReady) {
             Status = "Set a valid game folder on the Install page before driving.";
@@ -184,10 +190,13 @@ public partial class DriveViewModel : ObservableObject
                 ?? Weather.FirstOrDefault(item => item.Id == "3_clear")
                 ?? Weather.FirstOrDefault();
         ApplyFilter();
+        ApplyTrackFilter();
         DriveCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnFilterChanged(string value) => ApplyFilter();
+
+    partial void OnTrackFilterChanged(string value) => ApplyTrackFilter();
 
     partial void OnSelectedCarChanged(CarSummary? value)
     {
@@ -241,6 +250,30 @@ public partial class DriveViewModel : ObservableObject
         }
 
         SelectedCar = FilteredCars.FirstOrDefault(car => car.Id == selectedId) ?? FilteredCars.FirstOrDefault();
+    }
+
+    private void ApplyTrackFilter()
+    {
+        var selectedId = SelectedTrack?.Id;
+        FilteredTracks.Clear();
+        var query = TrackFilter;
+        var active = !string.IsNullOrWhiteSpace(query);
+        IFilter<TrackSummary>? parsed = null;
+        if (active) {
+            try {
+                parsed = StringBasedFilter.Filter.Create(TrackSummaryTester.Instance, query);
+            } catch (Exception ex) when (ex is ArgumentException or RegexParseException) {
+                parsed = null;
+            }
+        }
+
+        foreach (var track in Tracks) {
+            if (!active || (parsed != null && parsed.Test(track))) {
+                FilteredTracks.Add(track);
+            }
+        }
+
+        SelectedTrack = FilteredTracks.FirstOrDefault(track => track.Id == selectedId) ?? FilteredTracks.FirstOrDefault();
     }
 
     [RelayCommand]
