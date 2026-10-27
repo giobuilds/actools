@@ -63,7 +63,8 @@ public sealed record TrackLayout(
     string? SpecsWidth = null,
     GeoTags? GeoTags = null,
     string? Country = null,
-    int? Year = null);
+    int? Year = null,
+    IReadOnlyList<string>? Tags = null);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
@@ -89,6 +90,9 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
 
     /// <summary>Year of the main layout. The DataProvider track-year list stays unread.</summary>
     public int? Year => Layouts.Count == 0 ? null : Layouts[0].Year;
+
+    /// <summary>Tags of the main layout. A tag does not fill the country.</summary>
+    public IReadOnlyList<string> Tags => Layouts.Count == 0 ? [] : Layouts[0].Tags ?? [];
 }
 
 public sealed record WeatherSummary(string Id, string Name);
@@ -185,7 +189,8 @@ public static class ContentLibrary
                         WidthOf(json),
                         GeoTags.Read(json),
                         TrackCountryOf(json),
-                        YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName)));
+                        YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName),
+                        TagsOf(json)));
                 }
             }
 
@@ -199,6 +204,7 @@ public static class ContentLibrary
             GeoTags? rootGeoTags;
             string? rootCountry;
             int? rootYear;
+            IReadOnlyList<string>? rootTags;
             if (rootPresent) {
                 var rootElement = ReadUiObject(rootJson);
                 var trimmedName = StringOf(rootElement, "name")?.Trim();
@@ -211,6 +217,7 @@ public static class ContentLibrary
                 rootGeoTags = GeoTags.Read(rootElement);
                 rootCountry = TrackCountryOf(rootElement);
                 rootYear = YearOf(rootElement, string.IsNullOrEmpty(trimmedName) ? null : trimmedName);
+                rootTags = TagsOf(rootElement);
             } else {
                 rootName = id;
                 rootVersion = null;
@@ -222,6 +229,7 @@ public static class ContentLibrary
                 rootGeoTags = null;
                 rootCountry = null;
                 rootYear = null;
+                rootTags = null;
             }
 
             var layouts = TrackLayoutOrder.Arrange(
@@ -237,7 +245,8 @@ public static class ContentLibrary
                 rootWidth,
                 rootGeoTags,
                 rootCountry,
-                rootYear);
+                rootYear,
+                rootTags);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
