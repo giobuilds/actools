@@ -795,6 +795,61 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_track_author_keeps_the_json_text()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-author-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "author": " Reboot Team " }""");
+            WriteTrack(root, "mod_kunos", """{ "name": "Claimed", "author": "Kunos" }""");
+            WriteTrack(root, "mod_padded", """{ "name": "Padded", "author": " Kunos " }""");
+            WriteTrack(root, "mod_lower", """{ "name": "Lower", "author": "kunos" }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "author": "" }""");
+            WriteTrack(root, "mod_spaces", """{ "name": "Spaces", "author": "   " }""");
+            WriteTrack(root, "mod_number", """{ "name": "Number", "author": 12 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "ks_monza", """{ "name": "Monza", "author": "Someone" }""");
+            WriteTrack(root, "ks_imola", """{ "name": "Imola", "author": "Kunos" }""");
+            WriteTrack(root, "ks_spa", """{ "name": "Spa" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "author": "Reboot Team" }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix" }""");
+            WriteTrack(root, "mod_split", """{ "name": "Split" }""");
+            WriteLayout(root, "mod_split", "gp", """{ "name": "Grand Prix", "author": "Layout Team" }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "author": "Grand Prix Team" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "author": "Drift Team" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal("Reboot Team", spa.Author);
+            Assert.Equal("Reboot Team", spa.Layouts[0].Author);
+            Assert.Null(tracks.Single(track => track.Id == "mod_kunos").Author);
+            Assert.Null(tracks.Single(track => track.Id == "mod_padded").Author);
+            Assert.Equal("kunos", tracks.Single(track => track.Id == "mod_lower").Author);
+            Assert.Null(tracks.Single(track => track.Id == "mod_blank").Author);
+            Assert.Equal("", tracks.Single(track => track.Id == "mod_spaces").Author);
+            Assert.Equal("12", tracks.Single(track => track.Id == "mod_number").Author);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").Author);
+            Assert.Equal("Someone", tracks.Single(track => track.Id == "ks_monza").Author);
+            Assert.Null(tracks.Single(track => track.Id == "ks_imola").Author);
+            Assert.Null(tracks.Single(track => track.Id == "ks_spa").Author);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("Reboot Team", cup.Author);
+            Assert.Null(cup.Layouts[1].Author);
+
+            var split = tracks.Single(track => track.Id == "mod_split");
+            Assert.Null(split.Author);
+            Assert.Equal("Layout Team", split.Layouts[1].Author);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal("Grand Prix Team", layouts.Author);
+            Assert.Equal("Drift Team", layouts.Layouts[1].Author);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));

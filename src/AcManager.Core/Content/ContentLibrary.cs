@@ -64,7 +64,8 @@ public sealed record TrackLayout(
     GeoTags? GeoTags = null,
     string? Country = null,
     int? Year = null,
-    IReadOnlyList<string>? Tags = null);
+    IReadOnlyList<string>? Tags = null,
+    string? Author = null);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
@@ -93,6 +94,9 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
 
     /// <summary>Tags of the main layout. A tag does not fill the country.</summary>
     public IReadOnlyList<string> Tags => Layouts.Count == 0 ? [] : Layouts[0].Tags ?? [];
+
+    /// <summary>Author of the main layout. <c>Kunos</c> stays empty, and a <c>ks_</c> id does not fill it.</summary>
+    public string? Author => Layouts.Count == 0 ? null : Layouts[0].Author;
 }
 
 public sealed record WeatherSummary(string Id, string Name);
@@ -190,7 +194,8 @@ public static class ContentLibrary
                         GeoTags.Read(json),
                         TrackCountryOf(json),
                         YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName),
-                        TagsOf(json)));
+                        TagsOf(json),
+                        TrackAuthorOf(json)));
                 }
             }
 
@@ -205,6 +210,7 @@ public static class ContentLibrary
             string? rootCountry;
             int? rootYear;
             IReadOnlyList<string>? rootTags;
+            string? rootAuthor;
             if (rootPresent) {
                 var rootElement = ReadUiObject(rootJson);
                 var trimmedName = StringOf(rootElement, "name")?.Trim();
@@ -218,6 +224,7 @@ public static class ContentLibrary
                 rootCountry = TrackCountryOf(rootElement);
                 rootYear = YearOf(rootElement, string.IsNullOrEmpty(trimmedName) ? null : trimmedName);
                 rootTags = TagsOf(rootElement);
+                rootAuthor = TrackAuthorOf(rootElement);
             } else {
                 rootName = id;
                 rootVersion = null;
@@ -230,6 +237,7 @@ public static class ContentLibrary
                 rootCountry = null;
                 rootYear = null;
                 rootTags = null;
+                rootAuthor = null;
             }
 
             var layouts = TrackLayoutOrder.Arrange(
@@ -246,7 +254,8 @@ public static class ContentLibrary
                 rootGeoTags,
                 rootCountry,
                 rootYear,
-                rootTags);
+                rootTags,
+                rootAuthor);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
@@ -435,6 +444,20 @@ public static class ContentLibrary
     {
         var author = TextOf(element, "author")?.Trim();
         if (string.IsNullOrEmpty(author) || author == CarAuthors.Kunos) {
+            return null;
+        }
+
+        return author;
+    }
+
+    /// <summary>
+    /// <c>AcJsonObjectNew.LoadVersionInfo</c> trims the JSON text. An all-space value becomes empty.
+    /// <c>Kunos</c> becomes empty. The official-track list stays unread, so a <c>ks_</c> id does not fill the author.
+    /// </summary>
+    private static string? TrackAuthorOf(JsonElement? element)
+    {
+        var author = TextOf(element, "author")?.Trim();
+        if (author == null || author == CarAuthors.Kunos) {
             return null;
         }
 
