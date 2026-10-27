@@ -92,7 +92,7 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
     /// <summary>Country of the main layout. A mapped tag fills this when the JSON country is missing.</summary>
     public string? Country => Layouts.Count == 0 ? null : Layouts[0].Country;
 
-    /// <summary>Year of the main layout. The DataProvider track-year list stays unread.</summary>
+    /// <summary>Year of the main layout. A missing JSON year can come from Years.json by track id.</summary>
     public int? Year => Layouts.Count == 0 ? null : Layouts[0].Year;
 
     /// <summary>Tags of the main layout. A mapped tag can also fill the country.</summary>
@@ -139,7 +139,7 @@ public static class ContentLibrary
                 ScanSkins(directory),
                 TagsOf(json),
                 CarCountryOf(json),
-                YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName),
+                YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName, ContentYears.ForCar(id)),
                 TextOf(json, "parent"),
                 officialCarIds != null && officialCarIds.Contains(id) ? CarAuthors.Kunos : AuthorOf(json),
                 SpecOf(json, "bhp"),
@@ -203,7 +203,7 @@ public static class ContentLibrary
                         WidthOf(json),
                         GeoTagsOf(id, json),
                         CountryOf(json),
-                        YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName),
+                        YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName, ContentYears.ForTrack(id)),
                         TagsOf(json),
                         TrackAuthorOf(json),
                         UrlOf(json)));
@@ -235,7 +235,7 @@ public static class ContentLibrary
                 rootWidth = WidthOf(rootElement);
                 rootGeoTags = GeoTagsOf(id, rootElement);
                 rootCountry = CountryOf(rootElement);
-                rootYear = YearOf(rootElement, string.IsNullOrEmpty(trimmedName) ? null : trimmedName);
+                rootYear = YearOf(rootElement, string.IsNullOrEmpty(trimmedName) ? null : trimmedName, ContentYears.ForTrack(id));
                 rootTags = TagsOf(rootElement);
                 rootAuthor = TrackAuthorOf(rootElement);
                 rootUrl = UrlOf(rootElement);
@@ -480,15 +480,19 @@ public static class ContentLibrary
     }
 
     /// <summary>
-    /// JSON year first, then the year at the end of <paramref name="name"/>.
-    /// The DataProvider year lists stay unread. <paramref name="name"/> is the
-    /// trimmed JSON name before a trailing version is removed.
+    /// JSON year first, then <paramref name="listed"/> from <c>Years.json</c>, then the year
+    /// at the end of <paramref name="name"/>. <paramref name="name"/> is the trimmed JSON name
+    /// before a trailing version is removed. Track layouts share the track folder id.
     /// </summary>
-    private static int? YearOf(JsonElement? element, string? name)
+    private static int? YearOf(JsonElement? element, string? name, int? listed)
     {
         var year = IntOf(element, "year");
         if (year.HasValue) {
             return year;
+        }
+
+        if (listed.HasValue) {
+            return listed;
         }
 
         if (string.IsNullOrEmpty(name)) {

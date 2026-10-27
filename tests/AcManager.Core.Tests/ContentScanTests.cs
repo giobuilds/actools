@@ -801,6 +801,42 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_listed_id_supplies_the_year_before_the_name()
+    {
+        var carsRoot = Directory.CreateTempSubdirectory("actools-car-years-").FullName;
+        var tracksRoot = Directory.CreateTempSubdirectory("actools-track-years-").FullName;
+        try {
+            WriteCar(carsRoot, "2013gt3cup", """{ "name": "Plain" }""");
+            WriteCar(carsRoot, "918_spyder", """{ "name": "Cup '16" }""");
+            WriteCar(carsRoot, "997cupr", """{ "name": "Cup '16", "year": 1991 }""");
+            WriteCar(carsRoot, "mod_cup", """{ "name": "Cup '16" }""");
+
+            var cars = ContentLibrary.ScanCars(carsRoot);
+            Assert.Equal(2013, cars.Single(car => car.Id == "2013gt3cup").Year);
+            Assert.Equal(2013, cars.Single(car => car.Id == "918_spyder").Year);
+            Assert.Equal(1991, cars.Single(car => car.Id == "997cupr").Year);
+            Assert.Equal(2016, cars.Single(car => car.Id == "mod_cup").Year);
+
+            WriteTrack(tracksRoot, "ks_silverstone1967", """{ "name": "Cup '16" }""");
+            WriteLayout(tracksRoot, "ks_silverstone1967", "gp", """{ "name": "Grand Prix" }""");
+            WriteLayout(tracksRoot, "ks_silverstone1967", "national", """{ "name": "National", "year": 2001 }""");
+            WriteTrack(tracksRoot, "monza66", """{ "name": "Plain", "year": 1991 }""");
+            WriteTrack(tracksRoot, "mod_name", """{ "name": "Cup '16" }""");
+
+            var tracks = ContentLibrary.ScanTracks(tracksRoot);
+            var historic = tracks.Single(track => track.Id == "ks_silverstone1967");
+            Assert.Equal(1967, historic.Year);
+            Assert.Equal(1967, historic.Layouts[1].Year);
+            Assert.Equal(2001, historic.Layouts[2].Year);
+            Assert.Equal(1991, tracks.Single(track => track.Id == "monza66").Year);
+            Assert.Equal(2016, tracks.Single(track => track.Id == "mod_name").Year);
+        } finally {
+            Directory.Delete(carsRoot, true);
+            Directory.Delete(tracksRoot, true);
+        }
+    }
+
+    [Fact]
     public void A_track_year_comes_from_the_json_then_the_name()
     {
         var root = Directory.CreateTempSubdirectory("actools-track-year-").FullName;
