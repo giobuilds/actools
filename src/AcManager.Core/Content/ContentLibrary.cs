@@ -138,7 +138,7 @@ public static class ContentLibrary
                 StringOf(json, "class"),
                 ScanSkins(directory),
                 TagsOf(json),
-                CountryOf(json),
+                CarCountryOf(json),
                 YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName),
                 TextOf(json, "parent"),
                 officialCarIds != null && officialCarIds.Contains(id) ? CarAuthors.Kunos : AuthorOf(json),
@@ -406,7 +406,7 @@ public static class ContentLibrary
     /// <summary>
     /// <c>AcJsonObjectNew.LoadCountry</c>. A present country is normalized with
     /// <c>CountryFromTag</c>. When that key is missing, the first mapped tag is used.
-    /// An all-space country stays empty. Brand countries stay unread.
+    /// An all-space country stays empty.
     /// </summary>
     private static string? CountryOf(JsonElement? element)
     {
@@ -423,6 +423,21 @@ public static class ContentLibrary
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// <c>CarObject.LoadData</c> fills a missing country from the brand.
+    /// A country that is already set, including one taken from a tag, stays.
+    /// </summary>
+    private static string? CarCountryOf(JsonElement? element)
+    {
+        var country = CountryOf(element);
+        if (country != null) {
+            return country;
+        }
+
+        var brand = StringOf(element, "brand");
+        return string.IsNullOrEmpty(brand) ? null : CountryNames.FromBrand(brand);
     }
 
     private static IReadOnlyList<string> TagsOf(JsonElement? element)

@@ -114,7 +114,8 @@ public class ContentScanTests
             Assert.Equal("6.77", full.SpecsPwRatio);
 
             Assert.Null(cars.Single(car => car.Id == "ks_listed").Author);
-            Assert.Null(cars.Single(car => car.Id == "ks_listed").Country);
+            Assert.Equal("Italy", cars.Single(car => car.Id == "ks_listed").Country);
+            Assert.Equal("Japan", cars.Single(car => car.Id == "mod_broken").Country);
             Assert.Null(cars.Single(car => car.Id == "mod_claim").Author);
             Assert.Equal("Someone", cars.Single(car => car.Id == "mod_kept").Author);
             Assert.Equal(2016, cars.Single(car => car.Id == "mod_cup").Year);
@@ -668,15 +669,21 @@ public class ContentScanTests
         var root = Directory.CreateTempSubdirectory("actools-car-country-").FullName;
         try {
             WriteCar(root, "mod_italy", """{ "name": "Cup", "country": "italy" }""");
-            WriteCar(root, "mod_alias", """{ "name": "Alias", "tags": ["italia"] }""");
+            WriteCar(root, "mod_alias", """{ "name": "Alias", "tags": ["italia"], "brand": "Mazda" }""");
             WriteCar(root, "mod_plain", """{ "name": "Plain", "tags": ["street"] }""");
-            WriteCar(root, "mod_brand", """{ "name": "Brand", "brand": "Ferrari" }""");
+            WriteCar(root, "mod_brand", """{ "name": "Brand", "brand": " Ferrari " }""");
+            WriteCar(root, "mod_aston", """{ "name": "Aston", "brand": "aston martin" }""");
+            WriteCar(root, "mod_unknown", """{ "name": "Unknown", "brand": "Not A Brand" }""");
+            WriteCar(root, "mod_kept", """{ "name": "Kept", "country": "Atlantis", "brand": "Ferrari" }""");
 
             var cars = ContentLibrary.ScanCars(root);
             Assert.Equal("Italy", cars.Single(car => car.Id == "mod_italy").Country);
             Assert.Equal("Italy", cars.Single(car => car.Id == "mod_alias").Country);
             Assert.Null(cars.Single(car => car.Id == "mod_plain").Country);
-            Assert.Null(cars.Single(car => car.Id == "mod_brand").Country);
+            Assert.Equal("Italy", cars.Single(car => car.Id == "mod_brand").Country);
+            Assert.Equal("Great Britain", cars.Single(car => car.Id == "mod_aston").Country);
+            Assert.Null(cars.Single(car => car.Id == "mod_unknown").Country);
+            Assert.Equal("Atlantis", cars.Single(car => car.Id == "mod_kept").Country);
         } finally {
             Directory.Delete(root, true);
         }

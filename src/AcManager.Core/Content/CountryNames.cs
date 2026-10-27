@@ -4,12 +4,19 @@ using System.Text.Json;
 namespace AcManager.Core.Content;
 
 /// <summary>
-/// Canonical country names from gro-ove/actools-data <c>Miscellaneous/Countries.json</c>
-/// and <c>TagCountries.json</c>. This is <c>AcStringValues.CountryFromTag</c>.
+/// Canonical country names from gro-ove/actools-data <c>Miscellaneous/Countries.json</c>,
+/// <c>TagCountries.json</c>, and <c>BrandCountries.json</c>.
+/// <c>AcStringValues.CountryFromTag</c> and <c>CountryFromBrand</c>.
 /// </summary>
 public static class CountryNames
 {
     private static readonly Lazy<Maps> Loaded = new(Load);
+
+    public static string? FromBrand(string brand)
+    {
+        var key = brand.Trim().ToLower(CultureInfo.CurrentCulture);
+        return Loaded.Value.Brands.GetValueOrDefault(key);
+    }
 
     public static string? FromTag(string tag)
     {
@@ -43,16 +50,18 @@ public static class CountryNames
     {
         var tags = new Dictionary<string, string>(StringComparer.Ordinal);
         var countries = new Dictionary<string, string>(StringComparer.Ordinal);
+        var brands = new Dictionary<string, string>(StringComparer.Ordinal);
         try {
             ReadAliases(Read("TagCountries.json"), tags);
             ReadCountries(Read("Countries.json"), countries);
+            ReadAliases(Read("BrandCountries.json"), brands);
         } catch (JsonException) {
-            return new Maps(tags, countries);
+            return new Maps(tags, countries, brands);
         } catch (IOException) {
-            return new Maps(tags, countries);
+            return new Maps(tags, countries, brands);
         }
 
-        return new Maps(tags, countries);
+        return new Maps(tags, countries, brands);
     }
 
     private static void ReadAliases(string json, Dictionary<string, string> tags)
@@ -124,5 +133,6 @@ public static class CountryNames
 
     private sealed record Maps(
         Dictionary<string, string> Tags,
-        Dictionary<string, string> Countries);
+        Dictionary<string, string> Countries,
+        Dictionary<string, string> Brands);
 }
