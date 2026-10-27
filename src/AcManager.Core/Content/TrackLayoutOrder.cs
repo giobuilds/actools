@@ -19,7 +19,8 @@ public readonly record struct TrackLayoutInfo(
     string? Country = null,
     int? Year = null,
     IReadOnlyList<string>? Tags = null,
-    string? Author = null);
+    string? Author = null,
+    string? Url = null);
 
 /// <summary>
 /// Picks the main track layout the way <c>TrackObject.GetLayouts</c> does when the
@@ -42,7 +43,8 @@ public static class TrackLayoutOrder
         string? rootCountry = null,
         int? rootYear = null,
         IReadOnlyList<string>? rootTags = null,
-        string? rootAuthor = null)
+        string? rootAuthor = null,
+        string? rootUrl = null)
     {
         if (rootPresent) {
             var extras = layouts
@@ -63,7 +65,8 @@ public static class TrackLayoutOrder
                 rootCountry,
                 rootYear,
                 rootTags,
-                rootAuthor));
+                rootAuthor,
+                rootUrl));
             return extras;
         }
 
@@ -131,7 +134,8 @@ public static class TrackLayoutOrder
             layout.Country,
             layout.Year,
             layout.Tags,
-            layout.Author);
+            layout.Author,
+            layout.Url);
 
     private static string Preferred(string trackId, IReadOnlyList<TrackLayoutInfo> layouts)
     {

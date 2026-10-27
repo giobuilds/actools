@@ -850,6 +850,49 @@ public class ContentScanTests
     }
 
     [Fact]
+    public void A_track_url_keeps_the_json_text()
+    {
+        var root = Directory.CreateTempSubdirectory("actools-track-url-").FullName;
+        try {
+            WriteTrack(root, "mod_spa", """{ "name": "Spa", "url": " https://example.com/spa " }""");
+            WriteTrack(root, "mod_blank", """{ "name": "Blank", "url": "" }""");
+            WriteTrack(root, "mod_spaces", """{ "name": "Spaces", "url": "   " }""");
+            WriteTrack(root, "mod_number", """{ "name": "Number", "url": 12 }""");
+            WriteTrack(root, "mod_plain", """{ "name": "Plain" }""");
+            WriteTrack(root, "mod_cup", """{ "name": "Cup", "url": "https://example.com/cup" }""");
+            WriteLayout(root, "mod_cup", "gp", """{ "name": "Grand Prix" }""");
+            WriteTrack(root, "mod_split", """{ "name": "Split" }""");
+            WriteLayout(root, "mod_split", "gp", """{ "name": "Grand Prix", "url": "https://example.com/gp" }""");
+            WriteLayout(root, "mod_layouts", "gp", """{ "name": "Grand Prix", "url": "https://example.com/gp" }""");
+            WriteLayout(root, "mod_layouts", "drift", """{ "name": "Drift", "url": "https://example.com/drift" }""");
+
+            var tracks = ContentLibrary.ScanTracks(root);
+            var spa = tracks.Single(track => track.Id == "mod_spa");
+            Assert.Equal("https://example.com/spa", spa.Url);
+            Assert.Equal("https://example.com/spa", spa.Layouts[0].Url);
+            Assert.Null(tracks.Single(track => track.Id == "mod_blank").Url);
+            Assert.Null(tracks.Single(track => track.Id == "mod_spaces").Url);
+            Assert.Equal("12", tracks.Single(track => track.Id == "mod_number").Url);
+            Assert.Null(tracks.Single(track => track.Id == "mod_plain").Url);
+
+            var cup = tracks.Single(track => track.Id == "mod_cup");
+            Assert.Equal("https://example.com/cup", cup.Url);
+            Assert.Null(cup.Layouts[1].Url);
+
+            var split = tracks.Single(track => track.Id == "mod_split");
+            Assert.Null(split.Url);
+            Assert.Equal("https://example.com/gp", split.Layouts[1].Url);
+
+            var layouts = tracks.Single(track => track.Id == "mod_layouts");
+            Assert.Equal("gp", layouts.Layouts[0].Id);
+            Assert.Equal("https://example.com/gp", layouts.Url);
+            Assert.Equal("https://example.com/drift", layouts.Layouts[1].Url);
+        } finally {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Name_year_follows_the_content_manager_cutoff()
     {
         Assert.Equal(2016, CarYear.FromName("Cup '16"));

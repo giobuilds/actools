@@ -65,7 +65,8 @@ public sealed record TrackLayout(
     string? Country = null,
     int? Year = null,
     IReadOnlyList<string>? Tags = null,
-    string? Author = null);
+    string? Author = null,
+    string? Url = null);
 
 public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLayout> Layouts)
 {
@@ -97,6 +98,9 @@ public sealed record TrackSummary(string Id, string Name, IReadOnlyList<TrackLay
 
     /// <summary>Author of the main layout. <c>Kunos</c> stays empty, and a <c>ks_</c> id does not fill it.</summary>
     public string? Author => Layouts.Count == 0 ? null : Layouts[0].Author;
+
+    /// <summary>URL of the main layout. A blank value stays empty.</summary>
+    public string? Url => Layouts.Count == 0 ? null : Layouts[0].Url;
 }
 
 public sealed record WeatherSummary(string Id, string Name);
@@ -195,7 +199,8 @@ public static class ContentLibrary
                         TrackCountryOf(json),
                         YearOf(json, string.IsNullOrEmpty(trimmedName) ? null : trimmedName),
                         TagsOf(json),
-                        TrackAuthorOf(json)));
+                        TrackAuthorOf(json),
+                        UrlOf(json)));
                 }
             }
 
@@ -211,6 +216,7 @@ public static class ContentLibrary
             int? rootYear;
             IReadOnlyList<string>? rootTags;
             string? rootAuthor;
+            string? rootUrl;
             if (rootPresent) {
                 var rootElement = ReadUiObject(rootJson);
                 var trimmedName = StringOf(rootElement, "name")?.Trim();
@@ -225,6 +231,7 @@ public static class ContentLibrary
                 rootYear = YearOf(rootElement, string.IsNullOrEmpty(trimmedName) ? null : trimmedName);
                 rootTags = TagsOf(rootElement);
                 rootAuthor = TrackAuthorOf(rootElement);
+                rootUrl = UrlOf(rootElement);
             } else {
                 rootName = id;
                 rootVersion = null;
@@ -238,6 +245,7 @@ public static class ContentLibrary
                 rootYear = null;
                 rootTags = null;
                 rootAuthor = null;
+                rootUrl = null;
             }
 
             var layouts = TrackLayoutOrder.Arrange(
@@ -255,7 +263,8 @@ public static class ContentLibrary
                 rootCountry,
                 rootYear,
                 rootTags,
-                rootAuthor);
+                rootAuthor,
+                rootUrl);
             var common = layouts.Count > 1
                 ? TrackLayoutOrder.CommonName(layouts.Select(layout => (string?)layout.Name).ToArray())
                 : null;
@@ -464,6 +473,9 @@ public static class ContentLibrary
         return author;
     }
 
+    /// <summary>
+    /// <c>AcJsonObjectNew.Url</c> trims the JSON text and clears a blank value.
+    /// </summary>
     private static string? UrlOf(JsonElement? element)
     {
         var url = TextOf(element, "url")?.Trim();
